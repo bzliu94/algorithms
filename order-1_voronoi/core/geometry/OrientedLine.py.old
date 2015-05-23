@@ -1,0 +1,253 @@
+# a line
+
+# has direction
+
+"""
+
+# parameterize in a particular way
+
+"""
+
+import math
+
+from ..matrix_math.Matrix2x2 import *
+
+from Line import *
+
+class OrientedLine(Line):
+
+  """
+
+  # by default, the offset is point a
+
+  """
+
+  # also, the direction vector is by default normalized
+
+  def __init__(self, offset_vector, direction_vector):
+
+    normalized_direction_vector = OrientedLine.normalize(direction_vector)
+
+    Line.__init__(self, offset_vector, normalized_direction_vector)
+
+  """
+
+  def getOffsetVector(self):
+  
+    return self.offset_vector
+    
+  def getDirectionVector(self):
+  
+    return self.direction_vector
+
+  """
+
+  # assume that vec is a (x, y) tuple
+
+  @staticmethod
+
+  def normalize(vec):
+
+    # print vec
+
+    (vec_x, vec_y) = vec
+
+    magnitude = math.sqrt(vec_x ** 2.0 + vec_y ** 2.0)
+
+    result_vec = ((1.0 * vec_x) / magnitude, (1.0 * vec_y) / magnitude)
+
+    return result_vec
+    
+  # assume that an intersection exists
+  
+  # we assume the lines are not identical
+    
+  def intersectWithLine(self, line):
+  
+    offset_vec1 = self.getOffsetVector()
+
+    direction_vec1 = self.getDirectionVector()
+
+    offset_vec2 = line.getOffsetVector()
+
+    direction_vec2 = line.getDirectionVector()
+  
+    m = OrientedLine._getLineIntersectionMatrix(self, line)
+
+    # invert a (2 x 2) matrix
+
+    m_inv = m.getInverse()
+
+    # print m_inv.getA(), m_inv.getB(), m_inv.getC(), m_inv.getD()
+
+    b_x = offset_vec2[0] - offset_vec1[0]
+
+    b_y = offset_vec2[1] - offset_vec1[1]
+
+    t1 = m_inv.getA() * b_x + m_inv.getB() * b_y
+
+    t2 = m_inv.getC() * b_x + m_inv.getD() * b_y
+
+    intersection_x = direction_vec1[0] * t1 + offset_vec1[0]
+
+    intersection_y = direction_vec1[1] * t1 + offset_vec1[1]
+
+    # print t1, intersection_x, intersection_y
+
+    return (intersection_x, intersection_y)
+  
+  def doesIntersectWithLine(self, line):
+  
+    m = OrientedLine._getLineIntersectionMatrix(self, line)
+
+    det = m.getDeterminant()
+
+    does_not_intersect = det == 0
+
+    return not does_not_intersect
+    
+  # retrieve a 2 x 2 matrix
+
+  # in particular, retrieving M in M * t = b
+
+  # free variable for column 0 is t1, the parameter for the first line
+
+  # free variable for column 1 is t2, the parameter for the second line
+  
+  @staticmethod
+
+  def _getLineIntersectionMatrix(line1, line2):
+
+    # find implicit formula for line
+
+    # a * x + b * y + c = 0
+
+    offset_vec1 = line1.getOffsetVector()
+
+    direction_vec1 = line1.getDirectionVector()
+
+    offset_vec2 = line2.getOffsetVector()
+
+    direction_vec2 = line2.getDirectionVector()
+
+    # s1 = m1 * t1 + b1
+
+    # s2 = m2 * t2 + b2
+
+    # m1 * t1 + b1 = m2 * t2 + b2
+
+    # => m1 * t1 + (-1 * m2) * t2 = b2 - b1
+
+    # => M * t = b
+
+    # => t = (M ^ -1) * b
+
+    # a = m1.x, b = -m2.x, c = m1.y, d = -m2.y
+
+    # b.x = b2.x - b1.x
+
+    # b.y = b2.y - b1.y
+
+    a = direction_vec1[0]
+
+    b = -1.0 * direction_vec2[0]
+
+    c = direction_vec1[1]
+
+    d = -1.0 * direction_vec2[1]
+
+    m = Matrix2x2(a, b, c, d)
+
+    # print m.getA(), m.getB(), m.getC(), m.getD()
+
+    return m
+
+  def isOnLine(self, point, tolerance = 0.0001):
+
+    x_value = point[0]
+
+    y_value = point[1]
+
+    parameter_value = self._getParameterValueForYValue(y_value)
+
+    found_x_value = self._getXValueForParameterValue(parameter_value)
+
+    x_values_match = (found_x_value <= (x_value + tolerance)) and \
+                       (found_x_value >= (x_value - tolerance))
+
+    return x_values_match
+
+  # get parameter value for a point on the line
+
+  def getParameterValue(self, point):
+
+    is_on_line == self.isOnLine(point)
+
+    if is_on_line == False:
+
+      raise Exception("is not on line")
+
+    else:
+
+      y_value = point[1]
+
+      parameter_value = self._getParameterValueForYValue(y_value)
+
+      return parameter_value
+
+  def _getParameterValueForYValue(self, y_value):
+
+    y = 1.0 * point[1]
+
+    # y = v_d.y * t + v_o.y
+
+    # => t = (y - v_o.y) / v_d.y
+
+    offset_vector = self.getOffsetVector()
+
+    direction_vector = self.getDirectionVector()
+
+    offset_vector_y = offset_vector[1]
+
+    direction_vector_y = direction_vector[1]
+
+    t = (y - offset_vector_y) / (1.0 * direction_offset_vector_y)
+
+    return t
+
+  def _getXValueForParameterValue(self, parameter_value):
+
+    # x = v_d.x * t + v_o.x
+
+    offset_vector = self.getOffsetVector()
+
+    direction_vector = self.getDirectionVector()
+
+    offset_vector_x = offset_vector[0]
+
+    direction_vector_x = direction_vector[0]
+
+    x = direction_vector * parameter_value + offset_vector_x
+
+    return x
+
+"""
+
+line = OrientedLine((1, 2), (2, 3))
+
+print line.getDirectionVector()
+
+print line.getOffsetVector()
+
+"""
+
+"""
+
+line1 = OrientedLine((0, -5), (0, 5))
+
+line2 = OrientedLine((-5, 0), (5, 0))
+
+print line1.intersectWithLine(line2)
+
+"""
+

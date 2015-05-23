@@ -1,0 +1,24 @@
+from SweepLineTouchingSlab import *
+
+class TrailingSweepLineTouchingSlab(SweepLineTouchingSlab):
+
+  def __init__(self, left_x_value, sweep_line):
+
+    SweepLineTouchingSlab.__init__(self, left_x_value, float("inf"), sweep_line)
+
+from ..SweepLine import *
+
+from SweepLineTouchingSlabInterval import *
+
+sweep_line = SweepLine()
+
+sweep_line.setY(3)
+
+slab = TrailingSweepLineTouchingSlab(3, sweep_line)
+
+slab_interval = SweepLineTouchingSlabInterval(slab)
+
+print slab_interval.getLeftEndpoint()
+
+print slab_interval.getRightEndpoint()
+

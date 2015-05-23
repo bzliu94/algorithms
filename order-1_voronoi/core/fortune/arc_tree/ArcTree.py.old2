@@ -1,0 +1,64 @@
+class ArcTree(BalancedOrderedIntervalTree):
+
+  def __init__(self):
+
+    key_transform = lambda x: (x.getLeftEndpoint(), x.getPinchlessAngle())
+
+    comparator = ArcTree._comparator
+
+    BalancedOrderedIntervalTree.__init__(self, key_transform, comparator)
+
+    self.sweep_line = sweep_line
+
+  # entries are (interval, value) pairs
+
+  @staticmethod
+
+  def construct(arcs):
+
+    tree = ArcTree()
+
+    for entry in entries:
+
+      key, value = entry
+
+      tree.intervalInsert(key, value)
+
+    return tree
+
+  def getSweepLine(self):
+
+    return self.sweep_line
+
+  def insertArc(self):
+
+    pass
+
+  def removeArc(self):
+
+    pass
+
+  def query(self):
+
+    pass
+
+  def arcHasLeftNeighbor(self):
+
+    pass
+
+  def arcHasRightNeighbor(self):
+
+    pass
+
+  def getArcLeftNeighbor(self):
+
+    pass
+
+  def getArcRightNeighbor(self):
+
+    pass
+
+  def getArcPayload(self):
+
+    pass
+

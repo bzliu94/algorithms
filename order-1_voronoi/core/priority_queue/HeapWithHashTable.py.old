@@ -1,0 +1,124 @@
+from Heap import *
+
+# intercept values so we can remove an entry only on basis of value in O(1) amortized time
+
+class HeapWithHashTable(Heap):
+
+  def __init__(self):
+
+    Heap.__init__(self)
+
+    self.k_v_pair_to_entry_dict = {}
+
+    self.entry_to_node_dict = {}
+
+    self.value_to_k_v_pairs_dict = {}
+
+  def insert(self, k, x):
+
+    """
+
+    if k == ():
+
+      raise Exception("have an invalid item")
+
+    """
+
+    """
+
+    print "inserting an item with key:", k
+
+    print "value is a", x.toString()
+
+    """
+
+    # print "inserting an item with item that is a site event and that has a location of:", x.getLocation()
+
+    # print "inserting an item with item that is a circle event and that is related to a focus that is:", x.getArc().getFocus()
+
+    # print "inserting an item with item that is a circle event and that is related to a focus that is:", x._getAssociatedLocation()
+
+    # node = Heap._insert(self, k, x)
+
+    node = Heap._insert(self, k, x)
+
+    entry = node.getElement()
+
+    (self.k_v_pair_to_entry_dict)[(k, x)] = entry
+
+    print "upon insertion, have following event types:", x.isCircleEvent(), entry.getValue().isCircleEvent()
+
+    (self.entry_to_node_dict)[entry] = node
+
+    if x not in self.value_to_k_v_pairs_dict:
+
+      (self.value_to_k_v_pairs_dict)[x] = [(k, x)]
+
+    else:
+
+      ((self.value_to_k_v_pairs_dict)[x]).append((k, x))
+
+  # returns an entry
+
+  # takes O(log(n)) time
+
+  def remove(self, k, x):
+
+    k_v_pair = (k, x)
+
+    entry = (self.k_v_pair_to_entry_dict)[k_v_pair]
+
+    # print (self.entry_to_node_dict).keys()
+
+    node = (self.entry_to_node_dict)[entry]
+
+    # entry = Heap._remove(node)
+
+    Heap._remove(self, node)
+
+    (self.k_v_pair_to_entry_dict).pop((k, x))
+
+    (self.entry_to_node_dict).pop(entry)
+
+    entries = (self.value_to_k_v_pairs_dict)[x]
+
+    if len(entries) == 1:
+
+      (self.value_to_k_v_pairs_dict).pop(x)
+
+    else:
+
+      entries.remove((k, x))
+
+    return entry
+
+  # remove an arbitrary matching entry
+
+  # takes O(log(n)) time
+
+  def removeValue(self, x):
+
+    k_v_pairs = (self.value_to_k_v_pairs_dict)[x]
+
+    k_v_pair = k_v_pairs[0]
+
+    key, value = k_v_pair
+
+    print k_v_pair
+
+    print x.isCircleEvent(), ((self.k_v_pair_to_entry_dict)[k_v_pair]).getValue().isCircleEvent()
+
+    result = self.remove(key, value)
+
+    entry = result
+
+    print "removing heap value:", entry
+
+    print entry.getKey(), entry.getValue(), entry.getValue().getArc().getFocus() if entry.getValue().isCircleEvent() == True else None
+
+    if not (x.isCircleEvent() == entry.getValue().isCircleEvent()):
+
+      raise Exception("mismatch in terms of event type")
+
+    return entry
+

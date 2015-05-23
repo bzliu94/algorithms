@@ -1,0 +1,307 @@
+from ...tree.bbst.ScapegoatTree import *
+
+from PathLabeledScapegoatTreeNode import *
+
+# modify insert and rebuild operations 
+#   for scapegoat tree
+
+class PathLabeledScapegoatTree(ScapegoatTree):
+
+  def __init__(self, key_transform = lambda x: x, comparator = comp):
+
+    ScapegoatTree.__init__(self, key_transform, comparator)
+
+  def _expandExternal(self, external_node, left_entry, right_entry):
+  
+    self._expandExternalHelper(external_node, left_entry, right_entry, PathLabeledScapegoatTreeNode)
+    
+  def addRoot(self, entry):
+
+    self._addRootHelper(entry, PathLabeledScapegoatTreeNode)
+
+  @staticmethod
+
+  def construct(entries):
+
+    tree = PathLabeledScapegoatTree()
+
+    for entry in entries:
+
+      key, value = entry
+
+      tree.insert(key, value)
+
+    return tree
+
+  # assume insert introduces a node 
+  #   by expanding a placeholder external node
+
+  def insert(self, key, value):
+
+    result = ScapegoatTree.insert(self, key, value)
+
+    entry, node = result
+
+    # print value, entry.getKey()
+
+    label = self.getPathLabel(node)
+
+    # print label, entry.toString()
+
+    node.setPathLabel(label)
+
+    return result
+
+  # takes O(1) time
+
+  def retrieveLabel(self, node):
+
+    return node.getPathLabel()
+
+  # by having re-determination of path labels 
+  #   be included as part of rebuilding, 
+  #   we introduce an additional time cost 
+  #   of O(log(n) + m)
+
+  # return root of the rebuilt subtree
+
+  def localRebuild(self, u):
+
+    # print "rebuilding"
+
+    subtree_root = ScapegoatTree.localRebuild(self, u)
+
+    # get root for rebuilt subtree
+
+    # find partial path label for subtree of root
+
+    # update path labels for rest of nodes in subtree
+
+    label = self.getPathLabel(subtree_root)
+
+    # print label
+
+    subtree_root.setPathLabel(label)
+
+    numeric_path = label.getNumericPath()
+
+    path_length = label.getPathLength()
+
+    partial_numeric_path = (numeric_path - numeric_path % 3) / 3
+
+    partial_path_length = path_length
+
+    partial_label = (partial_numeric_path, partial_path_length)
+
+    # print "partial label:", partial_label, "entry:", u.getElement().toString()
+
+    self._localRebuildLabelHelper(subtree_root, partial_numeric_path, partial_path_length)
+
+  def _localRebuildLabelHelper(self, node, partial_numeric_path, partial_path_length):
+
+    if node.isExternal() == True:
+
+      # do not update path label
+
+      return
+
+    # print "key:", node.getElement().getKey()
+
+    # partial_label = (partial_numeric_path, partial_path_length)
+
+    # print "partial label:", partial_label, "entry:", node.getElement().toString()
+
+    # update current node's label based on partial label
+
+    curr_numeric_path = partial_numeric_path * 3 + 1
+
+    curr_path_length = partial_path_length
+
+    curr_label = PathLabel(curr_numeric_path, curr_path_length)
+
+    node.setPathLabel(curr_label)
+
+    self._localRebuildLabelHelper(node.getLeftChild(), partial_numeric_path * 3, partial_path_length + 1)
+
+    self._localRebuildLabelHelper(node.getRightChild(), partial_numeric_path * 3 + 2, partial_path_length + 1)
+
+  # get value corresponding to a path 
+  #   from root to a node
+
+  # we assume that path always contains >= 1 nodes, 
+  #   and node at beginning is always root
+
+  # return a PathLabel object
+
+  # takes O(log(n)) time
+
+  def getPathLabel(self, node):
+
+    path_from_root = self.getPathFromRoot(node)
+
+    # print path_from_root
+
+    label = self.getPathLabelHelper(path_from_root[1 : ], 0, 0)
+
+    numeric_path = label.getNumericPath()
+
+    path_length = label.getPathLength()
+
+    # numeric_path, path_length = label
+
+    next_numeric_path = numeric_path + 1
+
+    next_path_length = path_length
+
+    next_label = PathLabel(next_numeric_path, next_path_length)
+
+    # print "label:", label, "entry:", node.getElement().toString()
+
+    # print label
+
+    return next_label
+
+  # use base three
+
+  # 0 for left child, 1 for current node, 
+  #   2 for right child
+
+  def getPathLabelHelper(self, path_nodes, partial_numeric_path, partial_path_length):
+
+    # path_size = len(path_from_root)
+
+    path_size = len(path_nodes)
+
+    if path_size == 0:
+
+      # print partial_numeric_path
+
+      return PathLabel(partial_numeric_path, partial_path_length)
+
+      """
+
+    elif path_size == 1:
+
+      return partial_label * 3 + 1
+
+      """
+
+    else:
+
+      # curr_node = path_size[0]
+
+      curr_node = path_nodes[0]
+
+      if curr_node.isLeftChild() == True:
+
+        return self.getPathLabelHelper(path_nodes[1 : ], partial_numeric_path * 3, partial_path_length + 1)
+
+      elif curr_node.isRightChild() == True:
+
+        return self.getPathLabelHelper(path_nodes[1 : ], partial_numeric_path * 3 + 2, partial_path_length + 1)
+
+      # print curr_node, curr_node.isLeftChild(), curr_node.isRightChild()
+
+  # get a list of nodes corresponding 
+  #   to a path from root to a node
+
+  # takes O(log(n)) time
+
+  def getPathFromRoot(self, node):
+
+    path_nodes = self.getPathFromRootHelper(node)
+
+    result = path_nodes[ : ]
+
+    result.reverse()
+
+    # print len(result)
+
+    return result
+
+  # get a list of nodes corresponding 
+  #   to a path from a node to root
+
+  # takes O(log(n)) time
+
+  def getPathFromRootHelper(self, node):
+
+    if node == self.getRoot():
+
+      return [node]
+
+    else:
+
+      return [node] + self.getPathFromRootHelper(node.getParent())
+
+  def buildBalanced(self, nodes):
+
+    # print "rebuilding subtree with subroot that has key:", nodes[0].getElement().getKey()
+
+    return self._buildBalancedHelper(nodes, PathLabeledScapegoatTreeNode)
+
+
+
+# note: 17 expected twice
+
+t2 = PathLabeledScapegoatTree.construct([(17, 1), (28, 1), (29, 1), (32, 1), (44, 1), (54, 1), (65, 1), (76, 1), (78, 1), (80, 1), (82, 1), (88, 1), (97, 1), (17, 2)])
+
+# t2 = PathLabeledScapegoatTree.construct([(17, 1), (28, 1), (29, 1), (32, 1), (44, 1)])
+
+print t2.toString()
+
+print t2.toInorderList()
+
+t2.remove(Entry(32, 1))
+
+print t2.toString()
+
+print t2.toInorderList()
+
+t2.remove(Entry(65, 1))
+
+print t2.toInorderList()
+
+
+
+
+
+# find returns an arbitrary match in terms of keys, 
+#   not necessarily a particular entry that we are interested in
+
+key_value_pairs = [(17, 1), (28, 1), (29, 1), (32, 1), (44, 1), (54, 1), (65, 1), (76, 1), (78, 1), (80, 1), (82, 1), (88, 1), (97, 1)]
+
+keys = [x[0] for x in key_value_pairs]
+
+t3 = PathLabeledScapegoatTree.construct(key_value_pairs)
+
+entry_node_pairs = [t3.find(x) for x in keys]
+
+nodes = [x[1] for x in entry_node_pairs]
+
+path_labels = [(x.getElement().getKey(), x.getPathLabel().toString()) for x in nodes]
+
+# make sure to only include unmarked nodes for the rebuilt subtree
+
+unmarked_nodes = [x for x in nodes if x.getMarked() == False]
+
+
+
+
+
+key_value_pairs = [(17, 1), (28, 1), (29, 1), (32, 1), (44, 1), (54, 1), (65, 1), (76, 1), (78, 1), (80, 1), (82, 1), (88, 1), (97, 1), (17, 2)]
+
+t3 = PathLabeledScapegoatTree.construct(key_value_pairs)
+
+print t3.toInorderList()
+
+print t3.toString()
+
+nodes = t3.toInorderInternalNodeList()
+
+path_labels = [(x.getElement().getKey(), x.getPathLabel().toString()) for x in nodes]
+
+print path_labels
+
+
+

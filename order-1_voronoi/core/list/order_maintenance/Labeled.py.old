@@ -1,0 +1,15 @@
+class Labeled:
+
+  def __init__(self, label = None):
+
+    self.label = label
+
+  def getLabel(self):
+
+    return self.label
+
+  def setLabel(self, label):
+
+    self.label = label
+
+  

@@ -1,0 +1,82 @@
+from BeachLineItem import *
+
+class SweepLineTouchingSlab(BeachLineItem):
+
+  def __init__(self, left_x_value, right_x_value, sweep_line):
+
+    self.left_x_value = left_x_value
+
+    self.right_x_value = right_x_value
+
+    self.sweep_line = sweep_line
+
+  def setLeftXValue(self, left_x_value):
+
+    self.left_x_value = left_x_value
+
+  def setRightXValue(self, right_x_value):
+
+    self.right_x_value = right_x_value
+
+  def setSweepLine(self, sweep_line):
+
+    self.sweep_line = sweep_line
+
+  def getLeftXValue(self):
+
+    return self.left_x_value
+
+  def getRightXValue(self):
+
+    return self.right_x_value
+
+  def getSweepLine(self):
+
+    return self.sweep_line
+
+  def getLowYValue(self):
+
+    return self.getSweepLine().getY()
+
+  def isSweepLineTouchingSlab(self):
+
+    return True
+
+"""
+
+from ..SweepLine import *
+
+sweep_line = SweepLine()
+
+sweep_line.setY(3)
+
+slab = SweepLineTouchingSlab(2, 4, sweep_line)
+
+print slab.getLeftXValue()
+
+print slab.getRightXValue()
+
+print slab.getLowYValue()
+
+sweep_line.setY(1)
+
+print slab.getLowYValue()
+
+"""
+
+"""
+
+from ..SweepLine import *
+
+sweep_line = SweepLine()
+
+sweep_line.setY(3)
+
+slab = SweepLineTouchingSlab(2, 4, sweep_line)
+
+print slab.isArc()
+
+print slab.isSweepLineTouchingSlab()
+
+"""
+

@@ -1,0 +1,479 @@
+from BalancedIntervalTree import *
+
+# from OrderedIntervalTreeNode import *
+
+from ..list.DoublyLinkedList import *
+
+from ..list.DoublyLinkedListNode import *
+
+from ..tree.BinarySearchTree import *
+
+# support left and right neighbor look-up in O(1) time
+
+# note: list nodes are not to be seen externally
+
+# list nodes store intervals, as opposed to entries
+
+# impose an ordering on the intervals stored in tree
+
+# have effectively modified node
+
+# implementation-wise, treat in certain aspects as a wrapper for existing list data structure
+
+class BalancedOrderedIntervalTree(BalancedIntervalTree):
+
+  def __init__(self):
+
+    BalancedIntervalTree.__init__(self)
+
+    self.node_list = DoublyLinkedList()
+    
+    # self.entry_to_list_node_map = {}
+
+    self.list_node_to_entry_map = {}
+    
+  def _addEntryToListNodeRelationship(self, entry, node):
+
+    (self.entry_to_list_node_map)[entry] = node
+
+    (self.list_node_to_entry_map)[node] = entry
+    
+    # print interval
+
+    # print node.getElement()
+
+  def _removeEntryToListNodeRelationship(self, entry, node):
+
+    (self.entry_to_list_node_map).pop(entry)
+
+    (self.list_node_to_entry_map).pop(node)
+
+  def _getListNodeForEntry(self, entry):
+
+    """
+
+    print interval.toString()
+  
+    print [x.toString() for x in (self.interval_to_list_node_map).keys()]
+
+    """
+
+    return (self.entry_to_list_node_map)[entry]
+
+  def _getEntryForListNode(self, node):
+
+    return (self.list_node_to_entry_map)[node]
+
+  # entries are (interval, value) pairs
+
+  @staticmethod
+
+  def construct(entries):
+
+    tree = BalancedOrderedIntervalTree()
+
+    entry = entries[0]
+
+    key, value = entry
+
+    tree.addIntervalAsFirst(key, value)
+
+    BalancedOrderedIntervalTree._constructHelper(tree, entry, entries[1 : ])
+
+    return tree
+
+  @staticmethod
+
+  def _constructHelper(tree, prev_entry, entries):
+
+    if len(entries) == 0:
+
+      return
+
+    else:
+
+      prev_key, prev_value = prev_entry
+
+      entry = entries[0]
+
+      key, value = entry
+
+      tree.addIntervalAfter(prev_key, key, value)
+
+      BalancedOrderedIntervalTree._constructHelper(tree, entry, entries[1 : ])
+
+  """
+
+  ##################################
+  ## FOR INTRODUCING HYBRID NODES ##
+  ##################################
+
+  def _expandExternal(self, external_node, left_entry, right_entry):
+  
+    self._expandExternalHelper(external_node, left_entry, right_entry, OrderedIntervalTreeNode)
+
+  def addRoot(self, entry):
+
+    self._addRootHelper(entry, OrderedIntervalTreeNode)
+    
+  """
+  
+  """
+    
+  #####################
+  ## FOR TREE ASPECT ##
+  #####################
+
+  """
+  
+
+  
+  ###################################
+  ## FOR INTERVAL PRIMITIVE ASPECT ##
+  ## (TO BE EXTERNALLY VISIBLE)    ##
+  ###################################
+  
+  # "add interval after" helper
+  
+  # add an interval after an existing one
+  
+  # use an interval, which can serve as an untransformed key, to identify a node
+  
+  # an entry is an (interval, value) pair
+  
+  # return added node
+  
+  # return a node
+  
+  def _addIntervalAfterHelper(self, reference_interval, interval, value):
+  
+    # note: make sure to update list aspect before tree aspect
+    #         due to balancing
+  
+    # make modifications relating to tree aspect and list aspect
+  
+    # retrieve list node for reference entry
+    
+    reference_node = self._getIntervalNode(reference_interval)
+    
+    # insert node after node for list aspect
+    
+    node = DoublyLinkedListNode(interval, None, None)
+    
+    (self.node_list).addAfter(reference_node, node)
+    
+    self._addIntervalToListNodeRelationship(interval, node)
+    
+    # insert into tree
+    
+    tree_entry, tree_node = self.intervalInsert(interval, value)
+    
+    return tree_node
+    
+  # "add interval after"
+  
+  # return created interval
+  
+  # return an interval object
+
+  def addIntervalAfter(self, reference_interval, interval, value):
+  
+    node = self._addIntervalAfterHelper(reference_interval, interval, value)
+    
+    interval = node.getElement().getKey()
+    
+    return interval
+    
+  # "remove interval" helper
+  
+  # remove an entry with interval as untransformed key
+
+  # return a node
+  
+  def _removeIntervalHelper(self, interval):
+  
+    # note: make sure to update list aspect before tree aspect
+    #         due to balancing
+    
+    # make modifications relating to tree aspect and list aspect
+    
+    # retrieve list node
+    
+    node = self._getIntervalNode(interval)
+    
+    # remove node from list
+    
+    (self.node_list).remove(node)
+    
+    self._removeIntervalToListNodeRelationship(interval, node)
+    
+    # remove node from tree
+    
+    # tree_search = BinarySearchTree._treeSearchWithUntransformedKey
+    
+    # tree_entry, tree_node = self._removeWithSplay(interval, tree_search)
+    
+    # tree_entry, tree_node = self._removeWithSplay(interval)
+    
+    tree_entry, tree_node = self.intervalDelete(interval)
+    
+    return tree_node
+    
+  # "remove interval"
+  
+  # remove a matching interval
+  
+  # return an entry
+    
+  def removeInterval(self, interval):
+  
+    node = self._removeIntervalHelper(interval)
+    
+    returned_entry = node.getElement()
+    
+    return returned_entry
+    
+  # "add interval as first" helper
+    
+  # return a node
+    
+  def _addIntervalAsFirstHelper(self, interval, value):
+  
+    # make modifications relating to tree aspect and list aspect
+  
+    # insert into tree
+    
+    tree_entry, tree_node = self.intervalInsert(interval, value)
+    
+    # retrieve list node
+    
+    # print interval
+
+    node = DoublyLinkedListNode(interval, None, None)
+    
+    # insert node after node for list aspect
+    
+    (self.node_list).addFirst(node)
+    
+    self._addIntervalToListNodeRelationship(interval, node)
+    
+    return tree_node
+    
+  # "add interval as first"
+
+  # add an interval to front of ordering
+  
+  # return an interval
+    
+  def addIntervalAsFirst(self, interval, value):
+  
+    node = self._addIntervalAsFirstHelper(interval, value)
+    
+    returned_interval = node.getElement().getKey()
+    
+    return returned_interval
+    
+  # "get interval node"
+    
+  # retrieve a list node for an interval
+    
+  # use untransformed key (interval object in this case)
+  
+  # takes O(log(n)) time
+  
+  # returns a list node
+
+  def _getIntervalNode(self, interval):
+  
+    # retrieve node for reference entry
+    
+    """
+    
+    tree_search = BinarySearchTree._treeSearchWithUntransformedKey
+    
+    entry, node = self._findWithSplay(interval, tree_search)
+    
+    """
+    
+    node = self._getListNodeForInterval(interval)
+    
+    return node
+    
+  # "interval has left neighbor" helper
+  
+  # return a boolean value
+    
+  def _intervalHasLeftNeighborHelper(self, node):
+  
+    if node == (self.node_list).getFirst():
+    
+      return False
+      
+    else:
+    
+      return True
+    
+  # "interval has left neighbor"
+    
+  # check if an interval has a left neighbor
+  
+  # takes O(1) average time
+
+  def intervalHasLeftNeighbor(self, interval):
+  
+    node = self._getIntervalNode(interval)
+    
+    return self._intervalHasLeftNeighborHelper(node)
+    
+  # "interval has right neighbor" helper
+  
+  # return a boolean value
+  
+  def _intervalHasRightNeighborHelper(self, node):
+  
+    if node == (self.node_list).getLast():
+    
+      return False
+      
+    else:
+    
+      return True
+
+  # "interval has right neighbor"
+      
+  # check if an interval has a right neighbor
+  
+  # takes O(1) average time
+      
+  def intervalHasRightNeighbor(self, interval):
+  
+    node = self._getIntervalNode(interval)
+    
+    return self._intervalHasRightNeighborHelper(node)
+      
+  # "get left neighboring interval" helper
+  
+  # return a list node
+
+  # will raise an exception if no left neighbor exists
+      
+  def _getLeftNeighboringIntervalHelper(self, interval):
+  
+    if self.intervalHasLeftNeighbor(interval) == False:
+
+      raise Exception("no left neighbor for interval exists")
+
+    node = self._getIntervalNode(interval)
+    
+    left_neighbor_node = node.getPrev()
+    
+    return left_neighbor_node
+    
+  # "get left neighboring interval"
+
+  # retrieve a left neighbor interval
+  
+  # takes O(1) average time
+
+  # return an interval object
+
+  def getLeftNeighboringInterval(self, interval):
+  
+    node = self._getLeftNeighboringIntervalHelper(interval)
+    
+    interval = self.list_node_to_interval_map(node)
+    
+    return interval
+    
+  # "get right neighboring interval" helper
+  
+  # return a list node
+
+  # will raise an exception if no right neighbor exists
+    
+  def _getRightNeighboringIntervalHelper(self, interval):
+
+    if self.intervalHasRightNeighbor(interval) == False:
+
+      raise Exception("no right neighbor for interval exists")
+
+    node = self._getIntervalNode(interval)
+
+    # print node.getElement()
+    
+    right_neighbor_node = node.getNext()
+    
+    return right_neighbor_node
+    
+  # "get right neighboring interval"
+
+  # retrieve a right neighbor interval
+  
+  # takes O(1) average time
+  
+  # returns an interval object
+
+  def getRightNeighboringInterval(self, interval):
+  
+    node = self._getRightNeighboringIntervalHelper(interval)
+    
+    interval = self.list_node_to_interval_map(node)
+    
+    return interval
+
+t1 = BalancedOrderedIntervalTree.construct([(Interval(0, 1), 1), (Interval(1, 2), 1), (Interval(2, 3), 1)])
+
+"""
+
+# print t1.toString()
+
+print t1.toInorderList()
+
+t1.intervalInsert(Interval(3, 4), 1)
+
+# print t1.toString()
+
+print t1.toInorderList()
+
+t1.intervalDelete(Interval(1, 2), 1)
+
+# print t1.toString()
+
+print t1.toInorderList()
+
+entry, node = t1.intervalSearch(Interval(2.5, 2.5))
+
+"""
+
+print t1.toString()
+
+print t1.toInorderList()
+
+interval = Interval(2.5, 2.5)
+
+t1.addIntervalAsFirst(interval, 1)
+
+entry, node = t1.intervalSearch(interval)
+
+left_neighbor = t1.getLeftNeighboringInterval(interval)
+
+right_neighbor = t1.getRightNeighboringInterval(interval)
+
+left_neighbor_entry = left_neighbor.getEntry()
+
+right_neighbor_entry = right_neighbor.getEntry()
+
+print left_neighbor_entry.toString()
+
+print right_neighbor_entry.toString()
+
+"""
+
+t2 = BalancedIntervalTree.construct([(Interval(1, 11), 1), (Interval(2, 12), 1), (Interval(4, 14), 1), (Interval(3, 5), 1), (Interval(0, 10), 1)])
+
+print t2.toString()
+
+print t2.toInorderList()
+
+"""
+

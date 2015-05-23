@@ -1,0 +1,20 @@
+# from Labeled import *
+
+from ..DoublyLinkedListNode import *
+
+class LabeledDoublyLinkedListNode(Labeled):
+
+  def __init__(self, node, label = None):
+
+    Labeled.__init__(self, label)
+
+    self.node = node
+
+  def getNode(self):
+
+    return self.node
+
+  def setNode(self, node):
+
+    self.node = node
+

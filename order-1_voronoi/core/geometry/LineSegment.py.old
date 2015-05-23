@@ -1,0 +1,40 @@
+# constrained version of a line
+
+from OrientedLine import *
+
+class LineSegment:
+
+  # valid parameter values are those in interval [t.a, t.b]
+
+  # note that the endpoints are included
+
+  def __init__(self, point_a, point_b):
+
+    self.point_a = point_a
+
+    self.point_b = point_b
+
+    line = OrientedLine(point_a, point_b)
+
+    self.line = line
+
+  def getPointA(self):
+
+    return self.point_a
+
+  def getPointB(self):
+
+    return self.point_b
+
+  def getCounterClockwiseBisector(self):
+
+    bisector = Bisector(point_a, point_b)
+
+    return bisector
+
+line_segment = LineSegment((0, 0), (1, 0))
+
+print line_segment.getPointA()
+
+print line_segment.getPointB()
+

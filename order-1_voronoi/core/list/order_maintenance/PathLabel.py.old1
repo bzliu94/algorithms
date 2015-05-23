@@ -1,0 +1,86 @@
+# base-four number
+
+# 1: left child
+# 2: current node
+# 3: right child
+
+from core.Util import *
+
+from Label import *
+
+class PathLabel(Label):
+
+  def __init__(self, path_label = None):
+
+    Label.__init__(self, path_label)
+
+  # takes O(1) time
+
+  # note that we consider a numeric comparison as taking O(1) time
+
+  def compare(self, x):
+
+    curr_label = self.getValue()
+
+    label = x.getValue()
+
+    if curr_label == label:
+
+      return 0
+
+    elif curr_label < label:
+
+      return -1
+
+    elif curr_label > label:
+
+      return 1
+
+  # assume that value is a non-negative integer
+
+  # number has no leading zeroes
+
+  @staticmethod
+
+  def toBaseFourString(value):
+
+    return PathLabel._toBaseFourStringHelper(value, "")
+
+  @staticmethod
+
+  def _toBaseFourStringHelper(value, partial_str):
+
+    if value == 0:
+
+      return partial_str
+
+    else:
+
+      curr_digit = value % 4
+
+      next_value = (value - value % 4) / 4
+
+      next_partial_str = str(curr_digit) + partial_str
+
+      return PathLabel._toBaseFourStringHelper(next_value, next_partial_str)
+
+"""
+
+print PathLabel.toBaseFourString(1)
+
+print PathLabel.toBaseFourString(4)
+
+print PathLabel.toBaseFourString(16)
+
+print PathLabel.toBaseFourString(64)
+
+print PathLabel.toBaseFourString(256)
+
+print PathLabel.toBaseFourString(1024)
+
+print PathLabel.toBaseFourString(128)
+
+"""
+
+# print PathLabel.toBaseFourString(4097)
+

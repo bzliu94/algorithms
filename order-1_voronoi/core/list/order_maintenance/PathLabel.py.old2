@@ -1,0 +1,86 @@
+# base-three number
+
+# 0: left child
+# 1: current node
+# 2: right child
+
+from core.Util import *
+
+from Label import *
+
+class PathLabel(Label):
+
+  def __init__(self, path_label = None):
+
+    Label.__init__(self, path_label)
+
+  # takes O(1) time
+
+  # note that we consider a numeric comparison as taking O(1) time
+
+  def compare(self, x):
+
+    curr_label = self.getValue()
+
+    label = x.getValue()
+
+    if curr_label == label:
+
+      return 0
+
+    elif curr_label < label:
+
+      return -1
+
+    elif curr_label > label:
+
+      return 1
+
+  # assume that value is a non-negative integer
+
+  # number has no leading zeroes
+
+  @staticmethod
+
+  def toBaseThreeString(value):
+
+    return PathLabel._toBaseThreeStringHelper(value, "")
+
+  @staticmethod
+
+  def _toBaseThreeStringHelper(value, partial_str):
+
+    if value == 0:
+
+      return partial_str
+
+    else:
+
+      curr_digit = value % 3
+
+      next_value = (value - value % 3) / 3
+
+      next_partial_str = str(curr_digit) + partial_str
+
+      return PathLabel._toBaseThreeStringHelper(next_value, next_partial_str)
+
+"""
+
+print PathLabel.toBaseThreeString(1)
+
+print PathLabel.toBaseThreeString(4)
+
+print PathLabel.toBaseThreeString(16)
+
+print PathLabel.toBaseThreeString(64)
+
+print PathLabel.toBaseThreeString(256)
+
+print PathLabel.toBaseThreeString(1024)
+
+print PathLabel.toBaseThreeString(128)
+
+"""
+
+# print PathLabel.toBaseThreeString(4097)
+

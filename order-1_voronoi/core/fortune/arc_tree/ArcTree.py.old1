@@ -1,0 +1,232 @@
+class ArcTree(BalancedOrderedIntervalTree):
+
+  @staticmethod
+
+  def _comparator(key1, key2):
+
+    left_endpoint1, pinchless_angle1 = key1
+
+    left_endpoint2, pinchless_angle2 = key2
+
+    if left_endpoint1 != left_endpoint2:
+
+      if left_endpoint1 < left_endpoint2:
+
+        return -1
+
+      elif left_endpoint1 > left_endpoint2:
+
+        return 1
+
+    else:
+
+      return PinchlessAngle.comparator(pinchless_angle1, pinchless_angle2)
+
+  def __init__(self, sweep_line):
+
+    key_transform = lambda x: (x.getLeftEndpoint(), x.getPinchlessAngle())
+
+    comparator = ArcTree._comparator
+
+    BalancedOrderedIntervalTree.__init__(self, key_transform, comparator)
+
+    self.sweep_line = sweep_line
+
+  # entries are (interval, value) pairs
+
+  @staticmethod
+
+  def construct(arcs):
+
+    tree = ArcTree()
+
+    for entry in entries:
+
+      key, value = entry
+
+      tree.intervalInsert(key, value)
+
+    return tree
+
+  def getSweepLine(self):
+
+    return self.sweep_line
+
+  def insertArc(self):
+
+    pass
+
+  def removeArc(self):
+
+    pass
+
+  def query(self):
+
+    pass
+
+  def arcHasLeftNeighbor(self):
+
+    pass
+
+  def arcHasRightNeighbor(self):
+
+    pass
+
+  def getArcLeftNeighbor(self):
+
+    pass
+
+  def getArcRightNeighbor(self):
+
+    pass
+
+  def getArcPayload(self):
+
+    pass
+
+  @staticmethod
+
+  def getSign(value):
+
+    if value < 0:
+
+      return -1
+
+    elif value == 0:
+
+      return 0
+
+    elif value > 0:
+
+      return 1
+
+  @staticmethod
+
+  def getOrientation(a, b, c):
+
+    return ArcTree.getSign(ArcTree.getSignedAreaOfTriangle(a, b, c))
+
+  @staticmethod
+
+  def getSignedAreaOfTriangle(point_a, point_b, point_c):
+
+    a_x, a_y = point_a
+
+    b_x, b_y = point_b
+
+    c_x, c_y = point_c
+
+  a = b_x - a_x
+
+  b = b_y - a_y
+
+  c = c_x - a_x
+
+  d = c_y - a_y
+
+    m = Matrix2x2(a, b, c, d)
+
+    area = m.getDeterminant()
+
+  @staticmethod
+
+  def isLeftTurn(a, b, c):
+
+    return ArcTree.getOrientation(a, b, c) > 0
+
+  @staticmethod
+
+  def isRightTurn(a, b, c):
+
+    return AarcTree.getOrentiation(a, b, c) < 0
+
+  # for input vectors, we expect tuples
+
+  @staticmethod
+
+  def getDotProduct(vec_a, vec_b):
+
+    d = len(vec_a)
+
+    components_a = list(vec_a)
+
+    components_b = list(vec_b)
+
+    return ArcTree.getDotProductHelper(components_a, components_b, d))
+
+  @staticmethod
+
+  def getDotProductHelper(components_a, components_b, d):
+
+    if num_components == 0:
+
+      return 0
+
+    else:
+
+      next_component_a = components_a[0]
+
+      next_component_b = components_b[0]
+
+      product = next_component_a * next_component_b
+
+      next_components_a = components_a[1 : ]
+
+      next_components_b = components_b[1 : ]
+
+      next_d = d - 1
+
+      return product + ArcTree.getDotProductHelper(next_components_a, next_components_b, next_d)
+
+  @staticmethod
+
+  def getVectorSum(vec_a, vec_b):
+
+    a_x, a_y = vec_a
+
+    b_x, b_y = vec_b
+
+    result_vec = (a_x + b_x, a_y + b_y)
+
+    return result_vec
+
+  @staticmethod
+
+  def getVectorProduct(vec_a, factor):
+
+    a_x, a_y = vec_a
+
+    result_vec = (a_x * factor, a_y * factor)
+
+    return result_vec
+
+  @staticmethod
+
+  def isBetween(a, b, c):
+
+    vec_a = a
+
+    vec_b = b
+
+    vec_c = c
+
+    vec1 = ArcTree.getVectorSum(vec_a, ArcTree.getVectorProduct(vec_b, -1))
+
+    vec2 = ArcTree.getVectorSum(vec_c, ArcTree.getVectorProduct(vec_b, -1))
+
+    dot_product = ArcTree.getDotProduct(vec1, vec2)
+
+    return ArcTree.getOrientation(a, b, c) == 0 and dot_product < 0
+
+  @staticmethod
+
+  def modifiedIsLeftTurn(a, b, c):
+
+    return ArcTree.getOrientation(a, b, c) > 0 or ArcTree.isBetween(c, a, b)
+
+  @staticmethod
+
+  def modifiedIsRightTurn(a, b, c):
+
+    return ArcTree.getOrientation(a, b, c) < 0 or ArcTree.isBetween(c, a, b)
+

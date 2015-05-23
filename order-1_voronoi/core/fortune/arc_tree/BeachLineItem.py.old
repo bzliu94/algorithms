@@ -1,0 +1,14 @@
+class BeachLineItem:
+
+  def __init(self):
+
+    pass
+
+  def isArc(self):
+
+    return False
+
+  def isSweepLineTouchingSlab(self):
+
+    return False
+

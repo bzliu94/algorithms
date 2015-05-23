@@ -1,0 +1,910 @@
+# effective key is a three-tuple
+
+from BalancedIntervalTree import *
+
+from ..SweepLine import *
+
+from ...list.order_maintenance.OrderMaintainedDoublyLinkedList import *
+
+from Arc import *
+
+from ArcInterval import *
+
+# import ArcInterval.ArcInterval as ArcInterval
+
+from ArcPayload import *
+
+from ...Util import *
+
+class ArcTree(BalancedIntervalTree):
+
+  def __init__(self, precision, sweep_line):
+
+    # key_transform = lambda x: (x.getLeftEndpoint(), x.getSweeplineAngle())
+
+    # comparator = ArcTree._comparator
+    
+    key_transform = self._key_transform
+
+    comparator = self._comparator
+
+    BalancedIntervalTree.__init__(self, key_transform, comparator)
+
+    self.sweep_line = sweep_line
+
+    # have order-maintained arc list as companion structure
+
+    self.om_arc_list = OrderMaintainedDoublyLinkedList()
+    
+    self.arc_to_arc_interval_dict = {}
+    
+    self.arc_to_list_node_dict = {}
+
+    self.precision = precision
+    
+    # self.precision = 3
+    
+    # attempt to avoid 
+    # unexpected behavior 
+    # that may result from use 
+    # of floating-point values
+
+    # note that tolerance may affect 
+    # behavior relating to interval endpoints 
+    # that are minus or positive infinity
+    
+    self.tolerance = 0.0001
+    
+  def _getOrderMaintainedArcList(self):
+  
+    return self.om_arc_list
+  
+  def _key_transform(self, arc_interval):
+  
+    # temporarily use exact arithmetic 
+    # so that we may arrive 
+    # at a truncated value 
+    # and for purpose of comparison
+
+    # print arc_interval.toString()
+  
+    left_endpoint = arc_interval.getTruncatedLeftEndpoint(self.getPrecision())
+
+    # take into account fact that initial insertions of arcs 
+    #   lead to degenerate parabolas that then tie 
+    #   due to having comparisons partially on basis of left endpoints
+
+    is_size_zero = arc_interval._getArc().isSizeZero(self)
+
+    print "is size zero:", is_size_zero
+    
+    sweepline_angle = arc_interval.getSweeplineAngle()
+    
+    key = (left_endpoint, is_size_zero, sweepline_angle)
+
+    # print key
+    
+    return key
+
+  def _comparator(self, x, y):
+  
+    left_endpoint1, is_size_zero1, sweepline_angle1 = x
+    
+    left_endpoint2, is_size_zero2, sweepline_angle2 = y
+
+    # note that an interesting situation arises 
+    #   when attempting to subtract infinity from infinity
+    
+    # if (left_endpoint1 - self._getTolerance()) < left_endpoint2:
+
+    print left_endpoint1, left_endpoint2
+
+    if left_endpoint1 < (left_endpoint2 - self._getTolerance()):
+
+      # print "case 1"
+
+      # print left_endpoint1 - self._getTolerance(), left_endpoint2
+
+      # print left_endpoint1, self._getTolerance(), left_endpoint2
+    
+      return -1
+    
+    # elif (left_endpoint1 + self._getTolerance()) > left_endpoint2:
+
+    elif left_endpoint1 > (left_endpoint2 + self._getTolerance()):
+
+      print "case 2"
+
+      # print "case two with:", left_endpoint1, left_endpoint2
+    
+      return 1
+    
+    # elif abs(left_endpoint2 - left_endpoint1) <= self._getTolerance():
+
+    elif (left_endpoint1 <= (left_endpoint2 + self._getTolerance())) and \
+      (left_endpoint1 >= (left_endpoint2 - self._getTolerance())):
+
+      # print "case 3"
+
+      if self._degenerate_arc_comp(is_size_zero1, is_size_zero2) == -1:
+
+        return -1
+
+      elif self._degenerate_arc_comp(is_size_zero1, is_size_zero2) == 1:
+
+        return 1
+
+      elif self._degenerate_arc_comp(is_size_zero1, is_size_zero2) == 0:
+
+        print "using third item in tuple that serves as effective key"
+
+        result = sweepline_angle1.compare(sweepline_angle2)
+
+        if result == None:
+
+          return 0
+
+        else:
+
+          return result
+
+  def _degenerate_arc_comp(self, is_size_zero1, is_size_zero2):
+
+    if is_size_zero1 == True and is_size_zero2 == True:
+
+      # return "tie"
+
+      print "case 2a"
+
+      return 0
+
+    elif is_size_zero1 == False and is_size_zero2 == False:
+
+      # return "tie"
+
+      print "case 2b"
+
+      return 0
+
+    elif is_size_zero1 == False and is_size_zero2 == True:
+
+      # prefer having size zero arc to left
+
+      print "case 2c"
+
+      return 1
+
+    elif is_size_zero1 == True and is_size_zero2 == False:
+
+      # prefer having size zero arc to left
+
+      print "case 2d"
+
+      return -1
+
+  def _getTolerance(self):
+  
+    return self.tolerance
+
+  def _addArcToArcIntervalRelationship(self, arc, arc_interval):
+  
+    (self.arc_to_arc_interval_dict)[arc] = arc_interval
+    
+  def _removeArcToArcIntervalRelationship(self, arc):
+  
+    (self.arc_to_arc_interval_dict).pop(arc)
+    
+  def _getArcIntervalForArc(self, arc):
+
+    return (self.arc_to_arc_interval_dict)[arc]
+    
+  def _addArcToListNodeRelationship(self, arc, list_node):
+  
+    (self.arc_to_list_node_dict)[arc] = list_node
+    
+  def _removeArcToListNodeRelationship(self, arc):
+  
+    (self.arc_to_list_node_dict).pop(arc)
+    
+  def _getListNodeForArc(self, arc):
+  
+    # print self.arc_to_list_node_dict
+    
+    # print arc.getFocus()
+  
+    return (self.arc_to_list_node_dict)[arc]
+
+  # entries are (interval, value) pairs
+
+  @staticmethod
+
+  def construct(arcs):
+
+    tree = ArcTree()
+
+    for entry in entries:
+
+      key, value = entry
+
+      tree.insertArc(key, value)
+
+    return tree
+
+  def getSweepLine(self):
+
+    return self.sweep_line
+    
+  # this method is for inserting an arc 
+  #   with focus that has y-value that matches 
+  #   that of current sweep-line location
+
+  # assume that arc initially has no payload
+
+  def insertArc(self, arc):
+
+    """
+
+    print self.toString()
+
+    print "interval string list:", self.toIntervalStringList()
+
+    print "focus list:", self.toFocusList()
+
+    """
+
+    # print self.toIntervalStringList()
+
+    # print self.toFocusList()
+  
+    # print "inserting an arc"
+  
+    if self.hasNoArcs() == True:
+    
+      # update auxiliary/companion structures
+      
+      self._addArcAsFirstHelper(arc)
+      
+      # update tree
+      
+      arc_interval = self._getArcIntervalForArc(arc)
+
+      BalancedIntervalTree.intervalInsert(self, arc_interval, ArcPayload())
+
+      # print "sole interval:", arc_interval.toString()
+      
+    else:
+    
+      x_value = (arc.getFocus())[0]
+      
+      result = self.query(x_value)
+      
+      arc_above, arc_above_payload = result
+      
+      arc_above_focus = arc_above.getFocus()
+      
+      left_arc = Arc(arc_above_focus)
+      
+      right_arc = Arc(arc_above_focus)
+      
+      # arc_above is arc to remove
+      
+      # left_arc, arc, right_arc are replacement arcs
+      
+      # update auxiliary/companion structures
+
+      """
+      
+      self._addArcAfterHelper(arc_above, left_arc)
+      
+      self._addArcAfterHelper(left_arc, arc)
+      
+      self._addArcAfterHelper(arc, right_arc)
+
+      """
+
+      """
+      
+      # update tree
+
+      self.removeArc(arc_above)
+
+      """
+      
+      """
+      
+      # update auxiliary/companion structures
+      
+      self._removeArcHelper(arc_above)
+      
+      """
+      
+      # update tree
+
+      # introduce center, remove original, introduce left and right
+
+      # print "adding center arc"
+
+      anchor_arc_focus_x_value = arc_above.getTruncatedLeftEndpoint(self.getPrecision())
+
+      anchor_arc_focus_y_value = self.getSweepLine().getY()
+
+      focus = (anchor_arc_focus_x_value, anchor_arc_focus_y_value)
+
+      anchor_arc = Arc(focus)
+
+      """
+
+      arc_above_is_leftmost_arc = None
+
+      # find an anchor
+
+      if self.hasArcLeftNeighbor(arc_above) == True:
+
+        arc_above_is_leftmost_arc = False
+
+        anchor_arc = self.getArcLeftNeighbor(arc_above)
+
+      else:
+
+        arc_above_is_leftmost_arc = True
+
+      self.removeArc(arc_above)
+
+      if arc_above_is_leftmost_arc == False:
+
+        self._addArcAfterHelper(arc, anchor_arc)
+
+        self._addArcBeforeHelper(left_arc, arc)
+
+        self._addArcAfterHelper(right_arc, arc)
+
+      elif arc_above_is_leftmost_arc == True:
+
+        self._addArcAsFirstHelper(arc)
+
+        self._addArcBeforeHelper(left_arc, arc)
+
+        self._addArcAfterHelper(right_arc, arc)
+
+      """
+
+      self._addArcBeforeHelper(anchor_arc, arc_above)
+
+      anchor_arc_interval = self._getArcIntervalForArc(anchor_arc)
+
+      BalancedIntervalTree.intervalInsert(self, arc_interval, ArcPayload())
+
+
+      self._addArcAfterHelper(left_arc, anchor_arc)
+      
+      arc_interval = self._getArcIntervalForArc(arc)
+      
+      BalancedIntervalTree.intervalInsert(self, arc_interval, ArcPayload())
+
+      # print "removing original arc"
+
+      # self.removeArc(arc_above)
+
+      # print "adding left arc"
+
+
+
+      left_arc_interval = self._getArcIntervalForArc(left_arc)
+      
+      BalancedIntervalTree.intervalInsert(self, left_arc_interval, ArcPayload())
+
+      # print "adding right arc"
+      
+      right_arc_interval = self._getArcIntervalForArc(right_arc)
+      
+      BalancedIntervalTree.intervalInsert(self, right_arc_interval, ArcPayload())
+
+      # print "interval:", arc_interval.toString()
+
+  def removeArc(self, arc):
+  
+    # update tree
+
+    keys = self.arc_to_arc_interval_dict.values()
+
+    """
+
+    interval_strings = [x.toString() for x in keys]
+
+    arc_focuses = [x._getArc().getFocus() for x in keys]
+
+    print interval_strings
+
+    print arc_focuses
+
+    """
+    
+    arc_interval = self._getArcIntervalForArc(arc)
+    
+    # BalancedIntervalTree.remove(self, Entry(arc_interval, None))
+
+    """
+
+    print "interval corresponding to arc to be removed:", arc_interval.toString()
+
+    print "focus:", arc.getFocus()
+
+    """
+
+    print arc_interval._getArc().getFocus()
+
+    print self.toIntervalStringList()
+
+    print self.toFocusList()
+
+    BalancedIntervalTree.intervalDelete(self, arc_interval, None)
+    
+    # update auxiliary/companion structures
+    
+    self._removeArcHelper(arc)
+
+    # print "interval:", arc_interval.toString()
+
+  # retrieve arc above a location on sweep-line 
+  #   given an x value and location of sweep-line
+
+  # returns an (arc, payload) tuple
+
+  # raises an exception if there is nothing above the query location
+
+  def query(self, x_value):
+
+    interval = Interval(x_value, x_value)
+
+    result = BalancedIntervalTree.intervalSearch(self, interval)
+
+    if result == None:
+
+      raise Exception("no arc above query location")
+
+    result_interval, result_node = result
+
+    entry = result_node.getElement()
+
+    arc_interval = entry.getKey()
+
+    arc = arc_interval._getArc()
+
+    payload = entry.getValue()
+
+    """
+
+    print "x_value, arc_interval:", x_value, arc_interval.toString()
+
+    tree = self
+
+    print "tree:", tree.toString()
+
+    print "interval:", arc_interval.toString()
+
+    internal_node_list = tree.toInorderInternalNodeList()
+
+    interval_list = [x.getElement().getKey() for x in internal_node_list]
+
+    interval_string_list = [x.toString() for x in interval_list]
+
+    focus_list = [x.getElement().getKey()._getArc().getFocus() for x in internal_node_list]
+
+    print "interval string list:", interval_string_list
+
+    print "focus list:", focus_list
+
+    """
+
+    return (arc, payload)
+
+  def hasArcLeftNeighbor(self, arc):
+
+    left_neighbor = self.getArcLeftNeighbor(arc)
+
+    has_left_neighbor = left_neighbor != None
+    
+    return has_left_neighbor
+
+  def hasArcRightNeighbor(self, arc):
+  
+    right_neighbor = self.getArcRightNeighbor(arc)
+
+    has_right_neighbor = right_neighbor != None
+    
+    return has_right_neighbor
+    
+  # may return None
+
+  # we assume that if a particular arc neighbor exists, 
+  #   a corresponding arc interval also exists
+
+  def getArcLeftNeighbor(self, arc):
+
+    arc_tree = self
+
+    om_arc_list = arc_tree._getOrderMaintainedArcList()
+
+    list_node = arc_tree._getListNodeForArc(arc)
+
+    if om_arc_list.hasPredecessor(list_node) == False:
+
+      return None
+
+    else:
+
+      predecessor_list_node = list_node.prev
+
+      predecessor_arc = predecessor_list_node.getElement()
+
+      return predecessor_arc
+
+    """
+
+    left_neighbor = self.getPredecessorInternalNode()
+    
+    return left_neighbor
+
+    """
+
+  # may return None
+
+  # we assume that if a particular arc neighbor exists, 
+  #   a corresponding arc interval also exists
+
+  def getArcRightNeighbor(self, arc):
+
+    arc_tree = self
+
+    om_arc_list = arc_tree._getOrderMaintainedArcList()
+
+    list_node = arc_tree._getListNodeForArc(arc)
+
+    if om_arc_list.hasSuccessor(list_node) == False:
+
+      return None
+
+    else:
+
+      successor_list_node = list_node.next
+
+      successor_arc = successor_list_node.getElement()
+
+      return successor_arc
+
+    """
+
+    right_neighbor = self.getSuccessorInternalNode()
+    
+    return right_neighbor
+
+    """
+
+  def getArcPayload(self, arc):
+
+    arc_interval = self._getArcIntervalForArc(arc)
+
+    
+
+    sweep_line = self.getSweepLine()
+
+    print "sweep-line y-value:", sweep_line.getY()
+
+    tree = self
+
+    print "tree:", tree.toString()
+
+    print "interval:", arc_interval.toString()
+
+    internal_node_list = tree.toInorderInternalNodeList()
+
+    interval_list = [x.getElement().getKey() for x in internal_node_list]
+
+    interval_string_list = [x.toString() for x in interval_list]
+
+    focus_list = [x.getElement().getKey()._getArc().getFocus() for x in internal_node_list]
+
+    print "interval string list:", interval_string_list
+
+    print "focus list:", focus_list
+
+    om_arc_list_element_list = self._getOrderMaintainedArcList().toElementList()
+
+    om_arc_list_arc_list = om_arc_list_element_list
+
+    om_arc_list_arc_focus_list = [x.getFocus() for x in om_arc_list_arc_list]
+
+    print om_arc_list_arc_focus_list
+
+    
+
+    result = self.find(arc_interval)
+
+    """
+
+    if result != None:
+
+      raise Exception("found a match")
+
+    """
+    
+    entry, node = result
+
+    # print "found entry:", entry.toString()
+    
+    value = entry.getValue()
+    
+    return value
+
+  # remove arc
+  
+  # modify only auxiliary/companion structures
+  
+  # assume that arc1 does not have certain associated objects (i.e. list node, arc interval)
+  
+  # assume that arc2 does have certain associated objects (i.e. list node, arc interval)
+
+  def _removeArcHelper(self, arc):
+  
+    list_node = self._getListNodeForArc(arc)
+    
+    arc_interval = self._getArcIntervalForArc(arc)
+    
+    # update companion structure
+    
+    (self.om_arc_list).remove(list_node)
+    
+    # update auxiliary structures
+    
+    self._removeArcToArcIntervalRelationship(arc)
+    
+    self._removeArcToListNodeRelationship(arc)
+    
+  # add arc1 after arc2
+  
+  # modify only auxiliary/companion structures
+  
+  # assume that arc1 does not have certain associated objects (i.e. list node, arc interval)
+  
+  # assume that arc2 does have certain associated objects (i.e. list node, arc interval)
+    
+  def _addArcAfterHelper(self, arc1, arc2):
+
+    arc_interval1 = self._createArcInterval(arc1)
+
+    arc_interval2 = self._getArcIntervalForArc(arc2)
+
+    list_node1 = OrderMaintainedDoublyLinkedListNode(arc1, None, None)
+  
+    list_node2 = self._getListNodeForArc(arc2)
+    
+    # update companion structure
+    
+    # print list_node2, list_node1
+
+    (self.om_arc_list).addAfter(list_node1, list_node2)
+
+    # update auxiliary structures
+
+    self._addArcToArcIntervalRelationship(arc1, arc_interval1)
+
+    self._addArcToListNodeRelationship(arc1, list_node1)
+    
+  # add arc1 before arc2
+  
+  # modify only auxiliary/companion structures
+
+  # assume that arc1 does not have certain associated objects (i.e. list node, arc interval)
+  
+  # assume that arc2 does have certain associated objects (i.e. list node, arc interval)
+
+  def _addArcBeforeHelper(self, arc1, arc2):
+  
+    list_node1 = OrderMaintainedDoublyLinkedListNode(arc1, None, None)
+
+    list_node2 = self._getListNodeForArc(arc2)
+    
+    arc_interval1 = self._createArcInterval(arc1)
+
+    arc_interval2 = self._getArcIntervalForArc(arc2)
+    
+    # update companion structure
+
+    (self.om_arc_list).addBefore(list_node1, list_node2)
+
+    # update auxiliary structures
+
+    self._addArcToArcIntervalRelationship(arc1, arc_interval1)
+
+    self._addArcToListNodeRelationship(arc1, list_node1)
+    
+  def _addArcAsFirstHelper(self, arc):
+  
+    list_node = OrderMaintainedDoublyLinkedListNode(arc, None, None)
+    
+    arc_interval = self._createArcInterval(arc)
+    
+    # update companion structure
+    
+    (self.om_arc_list).addFirst(list_node)
+    
+    # update auxiliary structures
+    
+    self._addArcToArcIntervalRelationship(arc, arc_interval)
+
+    self._addArcToListNodeRelationship(arc, list_node)
+    
+  def _createArcInterval(self, arc):
+  
+    return ArcInterval(arc, self, self.getSweepLine())
+
+# update companion structure
+
+# update auxiliary structures
+
+# add to tree
+
+  def getArcList(self):
+
+    return self.toInorderList()
+
+  def getBreakpointList(self):
+
+    arc_list = self.getArcList()
+    
+    num_arcs = len(arc_list)
+    
+    num_pairs = max(0, num_arcs - 1)
+    
+    adjacent_arc_pairs = []
+    
+    for i in range(0, num_pairs):
+    
+      left_arc = arc_list[i]
+      
+      right_arc = arc_list[i + 1]
+      
+      arc_pair = (left_arc, right_arc)
+      
+      adjacent_arc_pairs.append(arc_pair)
+      
+    breakpoint_list = [Breakpoint(x[0], x[1]) for x in adjacent_arc_pairs]
+    
+    return breakpoint_list
+
+  def toString(self):
+
+    return BalancedIntervalTree.toString(self)
+
+  def getPrecision(self):
+
+    return self.precision
+
+  def setPrecision(self, precision):
+
+    self.precision = precision
+
+  # truncate a value
+
+  # precision is # of places to right of decimal point to keep
+
+  @staticmethod
+
+  def _truncate(value, precision):
+
+    return truncate(value, precision)
+
+  def getNumArcs(self):
+  
+    return self.getNumEntries()
+    
+  def hasNoArcs(self):
+  
+    return self.getNumArcs() == 0
+
+  def getLevelValue(self):
+  
+    return self.level
+
+  """
+
+  def toIntervalString(self):
+
+    pass
+
+  """
+
+  def toFocusList(self):
+
+    internal_node_list = self.toInorderInternalNodeList()
+
+    focus_list = [x.getElement().getKey()._getArc().getFocus() for x in internal_node_list]
+
+    return focus_list
+
+  """
+
+  def toInternalNodeList(self):
+
+    pass
+
+  """
+
+"""
+
+sweep_line = SweepLine(2)
+
+tree = ArcTree(3, sweep_line)
+
+arc1 = Arc([0, 2])
+
+arc2 = Arc([0, 1])
+
+arc3 = Arc([0, 0])
+
+tree.insertArc(arc1)
+
+sweep_line.setY(1)
+
+tree.insertArc(arc2)
+
+sweep_line.setY(0)
+
+tree.insertArc(arc3)
+
+print tree.toString()
+
+internal_node_list = tree.toInorderInternalNodeList()
+
+interval_list = [x.getElement().getKey() for x in internal_node_list]
+
+interval_string_list = [x.toString() for x in interval_list]
+
+arc_list = [x._getArc() for x in interval_list]
+
+arc_focus_list = [x.getFocus() for x in arc_list]
+
+print internal_node_list
+
+print interval_list
+
+print interval_string_list
+
+print arc_list
+
+print arc_focus_list
+
+"""
+
+"""
+
+arc1 = Arc([2, 3])
+
+arc2 = Arc([1, 1])
+
+sweep_line = SweepLine()
+
+tree = ArcTree(3, sweep_line)
+
+print "tree:", tree.toString()
+
+sweep_line.setY(3)
+
+tree.insertArc(arc1)
+
+print "tree:", tree.toString()
+
+sweep_line.setY(1)
+
+tree.insertArc(arc2)
+
+print "tree:", tree.toString()
+
+sweep_line.setY(0.7639)
+
+# tree.removeArc(arc2)
+
+# print "tree:", tree.toString()
+
+"""
+

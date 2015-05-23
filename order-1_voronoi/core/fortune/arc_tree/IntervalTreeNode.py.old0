@@ -1,0 +1,18 @@
+from ...tree.Node import *
+
+class IntervalTreeNode(Node):
+
+  def __init__(self, element, parent, left_child, right_child, max = None):
+  
+    Node.__init__(self, element, parent, left_child, right_child)
+    
+    self.max = max
+    
+  def getMax(self):
+  
+    return self.max
+    
+  def setMax(self, max):
+  
+    self.max = max
+

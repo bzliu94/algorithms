@@ -1,0 +1,179 @@
+# a heap can be described a sequence that satisfies heap invariant
+
+# first item is lowest in sequence
+
+# items after the first are not necessarily sorted
+
+from ..tree.Entry import *
+
+import heapq
+
+class EventQueue:
+
+  def __init__(self):
+
+    self.queue = []
+
+    self.value_to_entry_dict = {}
+
+    self.entry_to_key_dict = {}
+
+  def isEmpty(self):
+
+    return len(self.queue) == 0
+
+  def insert(self, k, x):
+
+    # print "inserting an event with priority:", k
+
+    # print self.queue
+
+    entry = Entry(k, x)
+
+    heapq.heappush(self.queue, (k, entry))
+
+    (self.value_to_entry_dict)[x] = entry
+
+    (self.entry_to_key_dict)[entry] = k
+
+    return entry
+
+  def removeMin(self):
+
+    # print "before removal:", self.queue
+
+    result = heapq.heappop(self.queue)
+
+    # print "after removal:", self.queue
+
+    k, entry = result
+
+    value = entry.getValue()
+
+    (self.value_to_entry_dict).pop(value)
+
+    (self.entry_to_key_dict).pop(entry)
+
+    return entry
+
+  # for now, this method takes O(n * log(n)) time 
+  #   as opposed to O(log(n)) time
+
+  def removeEvent(self, event):
+
+    value = event
+
+    entry = (self.value_to_entry_dict)[value]
+
+    key = (self.entry_to_key_dict)[entry]
+
+    # print "removing an event with priority:", key
+
+    key_entry_pair = (key, entry)
+
+    # print self.queue
+
+    # (self.queue).remove(key_entry_pair)
+
+    (self.queue).remove(key_entry_pair)
+
+    heapq.heapify(self.queue)
+
+    (self.value_to_entry_dict).pop(value)
+
+    (self.entry_to_key_dict).pop(entry)
+
+    return entry
+
+  def min(self):
+
+    result = (self.queue)[0]
+
+    k, entry = result
+
+    return entry
+
+
+
+
+from ..fortune.events.SiteEvent import *
+
+from ..fortune.events.CircleEvent import *
+
+from ..fortune.arc_tree.Arc import *
+
+event_queue = EventQueue()
+
+"""
+
+event_queue.insert(-96, SiteEvent((97, 96)))
+
+event_queue.insert(-93, SiteEvent((47, 93)))
+
+event_queue.insert(-93, SiteEvent((67, 93)))
+
+event_queue.insert(-91, SiteEvent((34, 91)))
+
+event_queue.insert(-88, SiteEvent((76, 88)))
+
+"""
+
+event_queue.insert(-96, SiteEvent((97, 96)))
+
+event_queue.insert(-93, SiteEvent((47, 93)))
+
+event_queue.insert(-93, SiteEvent((67, 93)))
+
+event_queue.insert(-88, SiteEvent((76, 88)))
+
+event_queue.insert(-91, SiteEvent((34, 91)))
+
+"""
+
+event_queue.insert(-92.801271358, CircleEvent(Arc((97, 96))))
+
+event_queue.insert(-92.801271358, CircleEvent(Arc((47, 93))))
+
+circle_event = CircleEvent(Arc((67, 93)))
+
+event_queue.insert(-92.801271358, circle_event)
+
+event_queue.removeEvent(circle_event)
+
+circle_event = CircleEvent(Arc((67, 93)))
+
+event_queue.insert(-87.4220795296, circle_event)
+
+circle_event = CircleEvent(Arc((67, 93)))
+
+event_queue.insert(-87.4220795296, circle_event)
+
+"""
+
+print event_queue.removeMin().getValue()._getAssociatedLocation()
+
+print event_queue.removeMin().getValue()._getAssociatedLocation()
+
+print event_queue.removeMin().getValue()._getAssociatedLocation()
+
+print event_queue.removeMin().getValue()._getAssociatedLocation()
+
+print event_queue.removeMin().getValue()._getAssociatedLocation()
+
+"""
+
+print event_queue.removeMin().getValue()._getAssociatedLocation()
+
+print event_queue.removeMin().getValue()._getAssociatedLocation()
+
+"""
+
+import heapq
+
+heap = [(-92.801, 1), (-92.801, 2), (-91, 3), (-88, 4)]
+
+heapq.heappop(heap)
+
+heapq.heappop(heap)
+
+print heap
