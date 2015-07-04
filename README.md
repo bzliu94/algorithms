@@ -2,10 +2,11 @@
 A collection of algorithms.
 
 1. order-1 voronoi sweep-line algorithm
-2. random knapsack
+2. r-tree
 3. r-star-tree
-4. r-tree
-5. ss-tree
+4. ss-tree
+5. random knapsack
+6. backtracking knapsack
 
 <img src="https://raw.githubusercontent.com/bzliu94/algorithms/master/order-1_voronoi/diagram%207.png" alt="partial voronoi diagram" width="400">
 
