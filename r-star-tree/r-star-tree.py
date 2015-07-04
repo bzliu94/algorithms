@@ -2,90 +2,13 @@
 
 # tie-breaking for same distance is identifier value with largest values appearing earlier
 
+# have root entry instead of solely root node
+
 import sys
 
 # import Image, ImageDraw
 
 import PythonMagick
-
-def getTopicDistance(topic_id, topic_id_to_point_dict, query_point):
-
-  point = topic_id_to_point_dict[topic_id]
-
-  distance = getDistance(point, query_point)
-
-  return distance
-
-def getQuestionDistance(question_id, question_id_to_topic_id_dict, topic_id_to_point_dict, query_point):
-
-  topic_id_list = question_id_to_topic_id_dict[question_id]
-
-  point_list = [topic_id_to_point_dict[x] for x in topic_id_list]
-
-  distance_list = [getDistance(x, query_point) for x in point_list]
-
-  min_distance = min(distance_list)
-
-  return min_distance
-
-# a proper key for a topic would be (distance, topic_id)
-
-def getTopicKey(topic_id, topic_id_to_point_dict, query_point):
-
-  distance = getTopicDistance(topic_id, topic_id_to_point_dict, query_point)
-
-  id_value = topic_id
-
-  result = (distance, id_value)
-
-  return result
-
-# a proper key for a question would be (distance, question_id)
-
-def getQuestionKey(question_id, question_id_to_topic_id_dict, topic_id_to_point_dict, query_point):
-
-  distance = getQuestionDistance(question_id, question_id_to_topic_id_dict, topic_id_to_point_dict, query_point)
-
-  id_value = question_id
-
-  result = (distance, id_value)
-
-  return result
-
-# equivalent to having a min-heap priority queue 
-# with (-1 * dist, id) as priority
-
-def compare_items(pair_a, pair_b):
-
-  # note that distances are non-negative values
-
-  # our threshold is 0.001, which results in a span of 0.002
-
-  dist_a, id_a = pair_a
-
-  dist_b, id_b = pair_b
-
-  if dist_a < dist_b - 0.001:
-
-    return -1
-
-  elif dist_a > dist_b + 0.001:
-
-    return 1
-
-  else:
-
-    if id_a > id_b:
-
-      return -1
-
-    elif id_a < id_b:
-
-      return 1
-
-    elif id_a == id_b:
-
-      return 0
 
 import heapq
 
@@ -510,64 +433,53 @@ class RTreeNode:
 
     return str(self.getEntries())
 
+# an entry is effectively an (mbr, child) pair
+
+# mbr may be composite or raw
+
+class RTreeEntry:
+
+  def __init__(self, mbr, child):
+
+    self.mbr = mbr
+
+    self.child = child
+
+  def getMBR(self):
+
+    return self.mbr
+
+  def setMBR(self, mbr):
+
+    self.mbr = mbr
+
+  def getChild(self):
+
+    return self.child
+
+  def setChild(self, node):
+
+    self.child = node
+
+  @staticmethod
+
+  def draw(tree, entries, image, depth):
+
+    for entry in entries:
+
+      RTreeEntry.drawHelper(tree, entry, image, depth)
+
+  @staticmethod
+
   # def draw(self, tree, draw, depth):
 
-  def draw(self, tree, image, depth):
+  def drawHelper(tree, entry, image, depth):
 
-    entries = self.getEntries()
+    node = entry.getChild()
 
-    mbr_list = [x.getMBR() for x in entries]
+    entries = node.getEntries()
 
-    if len(entries) == 0 and tree.getRoot() != self:
-
-      # draw a point
-
-      parent = self.getParent()
-
-      entry = parent.retrieveEntryForChild(self)
-
-      mbr = entry.getMBR()
-
-      location = Point.toPoint(mbr)
-
-      x, y = location
-
-      # multiplier = 3 * 0.8
-
-      # multiplier = 1 / (1.0 * 1302) * 0.8
-
-      multiplier = 1 / (1.0 * 6.5) * 0.8
-
-      # offset = (768 * 0.2) / 2
-
-      offset = (1536 * 0.2) / 2
-
-      next_x = multiplier * x
-
-      next_y = multiplier * y
-
-      """
-
-      draw.ellipse([(next_x - 2 + offset, next_y - 2 + offset), \
-        (next_x + 2 + offset, next_y + 2 + offset)], fill = "rgb(0, 0, 0)")
-
-      """
-
-      image.strokeColor("none")
-
-      image.fillColor("black")
-
-      center_x = next_x + offset
-
-      center_y = next_y + offset
-
-      radius = 2
-
-      perimeter_x = next_x + offset
-
-      perimeter_y = next_y + offset + radius
-
-      image.draw(PythonMagick.DrawableCircle(center_x, center_y, perimeter_x, perimeter_y))
+    mbr_list = [entry.getMBR()]
 
     for mbr in mbr_list:
 
@@ -601,6 +513,8 @@ class RTreeNode:
 
         pass
 
+      """
+
       matching_entries = [x for x in entries if x.getMBR() == mbr]
 
       matching_entry = matching_entries[0]
@@ -610,6 +524,8 @@ class RTreeNode:
       next_entries = child.getEntries()
 
       # print "num. of children:", len(next_entries)
+
+      """
 
       """
 
@@ -663,7 +579,7 @@ class RTreeNode:
 
         perimeter_x = next_x1
 
-        perimeter_y = next_y1+ radius
+        perimeter_y = next_y1 + radius
 
         image.draw(PythonMagick.DrawableCircle(center_x, center_y, perimeter_x, perimeter_y))
 
@@ -679,9 +595,68 @@ class RTreeNode:
 
         image.draw(PythonMagick.DrawableRectangle(next_x1, next_y1, next_x2, next_y2))
 
+    # mbr_list = [x.getMBR() for x in entries]
+
+    # if len(entries) == 0 and tree.getRootEntry().getChild() != self:
+
+    if len(entries) == 0:
+
+      # draw a point
+
+      parent = entry.getChild().getParent()
+
+      # entry = parent.retrieveEntryForChild(self)
+
+      # entry = self
+
+      mbr = entry.getMBR()
+
+      location = Point.toPoint(mbr)
+
+      x, y = location
+
+      # multiplier = 3 * 0.8
+
+      # multiplier = 1 / (1.0 * 1302) * 0.8
+
+      multiplier = 1 / (1.0 * 6.5) * 0.8
+
+      # offset = (768 * 0.2) / 2
+
+      offset = (1536 * 0.2) / 2
+
+      next_x = multiplier * x
+
+      next_y = multiplier * y
+
+      """
+
+      draw.ellipse([(next_x - 2 + offset, next_y - 2 + offset), \
+        (next_x + 2 + offset, next_y + 2 + offset)], fill = "rgb(0, 0, 0)")
+
+      """
+
+      image.strokeColor("none")
+
+      image.fillColor("black")
+
+      center_x = next_x + offset
+
+      center_y = next_y + offset
+
+      radius = 2
+
+      perimeter_x = next_x + offset
+
+      perimeter_y = next_y + offset + radius
+
+      image.draw(PythonMagick.DrawableCircle(center_x, center_y, perimeter_x, perimeter_y))
+
     children = [x.getChild() for x in entries]
 
     # print
+
+    """
 
     for child in children:
 
@@ -689,35 +664,11 @@ class RTreeNode:
 
       child.draw(tree, image, depth + 1)
 
+    """
+
+    entry.draw(tree, entries, image, depth + 1)
+
     # del draw
-
-# an entry is effectively an (mbr, child) pair
-
-# mbr may be composite or raw
-
-class RTreeEntry:
-
-  def __init__(self, mbr, child):
-
-    self.mbr = mbr
-
-    self.child = child
-
-  def getMBR(self):
-
-    return self.mbr
-
-  def setMBR(self, mbr):
-
-    self.mbr = mbr
-
-  def getChild(self):
-
-    return self.child
-
-  def setChild(self, node):
-
-    self.child = node
 
 # x goes from left (negative) to right (positive)
 
@@ -939,6 +890,7 @@ class RawMBR(MBR):
 
     MBR.__init__(self, upper_left, lower_right)
 
+
     self.contained_item = contained_item
 
   def isRaw(self):
@@ -1053,13 +1005,25 @@ class RTree:
 
   def __init__(self):
 
-    root = RTreeNode(None, [], True)
+    root_node = RTreeNode(None, [], True)
 
-    self.setRoot(root)
+    root_mbr = CompositeMBR(None, None, None)
+
+    root_entry = RTreeEntry(root_mbr, root_node)
+
+    self.setRootEntry(root_entry)
+
+  def getRootEntry(self):
+
+    return self.root_entry
+
+  def setRootEntry(self, root_entry):
+
+    self.root_entry = root_entry
 
   def hasConsistentNonTraditionalLeafDepthValues(self):
 
-    root = self.getRoot()
+    root = self.getRootEntry().getChild()
 
     curr_node = root
 
@@ -1103,7 +1067,7 @@ class RTree:
 
   def toNumChildrenString(self):
 
-    root = self.getRoot()
+    root = self.getRootEntry().getChild()
 
     return self.toNumChildrenStringHelper(root)
 
@@ -1159,7 +1123,7 @@ class RTree:
 
   def toEntriesArePresentString(self):
 
-    root = self.getRoot()
+    root = self.getRootEntry().getChild()
 
     return self.toEntriesArePresentStringHelper(root)
 
@@ -1215,7 +1179,7 @@ class RTree:
 
   def toLeafStatusString(self):
 
-    root = self.getRoot()
+    root = self.getRootEntry().getChild()
 
     return self.toLeafStatusStringHelper(root)
 
@@ -1271,7 +1235,7 @@ class RTree:
 
   def toDepthString(self):
 
-    root = self.getRoot()
+    root = self.getRootEntry().getChild()
 
     return self.toDepthStringHelper(root, 0)
 
@@ -1329,7 +1293,7 @@ class RTree:
 
   def toString(self):
 
-    root = self.getRoot()
+    root = self.getRootEntry().getChild()
 
     return self.toStringHelper(root)
 
@@ -1349,7 +1313,7 @@ class RTree:
 
     have_node_str = True
 
-    if node == self.getRoot():
+    if node == self.getRootEntry().getChild():
 
       have_node_str = False
 
@@ -1389,6 +1353,8 @@ class RTree:
 
     return overall_str
 
+  """
+
   def setRoot(self, node):
 
     self.root = node
@@ -1396,6 +1362,8 @@ class RTree:
   def getRoot(self):
 
     return self.root
+
+  """
 
   def chooseEntriesWithMinimalOverlapEnlargement(self, entries, entry):
 
@@ -1855,7 +1823,7 @@ class RTree:
 
   def chooseLeaf(self, entry):
 
-    return self.chooseLeafHelper(entry, self.getRoot())
+    return self.chooseLeafHelper(entry, self.getRootEntry().getChild())
 
   def chooseLeafHelper(self, entry, node):
 
@@ -1883,7 +1851,7 @@ class RTree:
 
   def rstarChooseLeaf(self, entry):
 
-    return self.rstarChooseLeafHelper(entry, self.getRoot())
+    return self.rstarChooseLeafHelper(entry, self.getRootEntry().getChild())
 
   def rstarChooseLeafHelper(self, entry, node):
 
@@ -1949,7 +1917,7 @@ class RTree:
 
     # print "inserting an entry"
 
-    if self.hasConsistentNonTraditionalLeafDepthValues() == False and self.getRoot().isLeafNode() == False:
+    if self.hasConsistentNonTraditionalLeafDepthValues() == False and self.getRootEntry().getChild().isLeafNode() == False:
 
       # raise Exception()
 
@@ -2126,7 +2094,7 @@ class RTree:
 
       # print "num. of entries:", tree.getRoot().getNumEntries()
 
-      if (tree.getRoot().getNumEntries() + 1) <= tree.getRoot().getMaximumNumEntriesPerNode():
+      if (tree.getRootEntry().getChild().getNumEntries() + 1) <= tree.getRootEntry().getChild().getMaximumNumEntriesPerNode():
 
         # there is space at root
 
@@ -2134,17 +2102,17 @@ class RTree:
 
         # raise Exception()
 
-        tree.getRoot().addEntry(ee)
+        tree.getRootEntry().getChild().addEntry(ee)
 
         # l.setParent(tree.getRoot())
 
-        ll.setParent(tree.getRoot())
+        ll.setParent(tree.getRootEntry().getChild())
 
       else:
 
         # split_result = tree.rstarSplitNode(tree.getRoot().getChildren()[0], ee)
 
-        split_result = tree.rstarSplitNode(tree.getRoot(), ee)
+        split_result = tree.rstarSplitNode(tree.getRootEntry().getChild(), ee)
 
         l, ll, e, ee = split_result
 
@@ -2174,7 +2142,7 @@ class RTree:
 
         # print "have a next root:", next_root
 
-        self.setRoot(next_root)
+        self.getRootEntry().setChild(next_root)
 
         # print "modified root as part of an insert"
 
@@ -2232,9 +2200,9 @@ class RTree:
 
     # print E_overall
 
-    m = self.getRoot().getMinimumNumEntriesPerNode()
+    m = self.getRootEntry().getChild().getMinimumNumEntriesPerNode()
 
-    M = self.getRoot().getMaximumNumEntriesPerNode()
+    M = self.getRootEntry().getChild().getMaximumNumEntriesPerNode()
 
     # print "num. of entries overall:", len(E_overall)
 
@@ -2348,7 +2316,7 @@ class RTree:
 
       parent.removeEntry(original_entry)
 
-    if node != self.getRoot():
+    if node != self.getRootEntry().getChild():
 
       # node is not the root; node 'node' is split and parent gains an entry
 
@@ -2410,7 +2378,7 @@ class RTree:
 
       next_root = RTreeNode(None, [entry1, entry2], False)
 
-      self.setRoot(next_root)
+      self.getRootEntry().setChild(next_root)
 
       # this causes problems
 
@@ -2640,7 +2608,7 @@ class RTree:
 
     entry2 = RTreeEntry(curr_overall_mbr2, node2)
 
-    if node != self.getRoot():
+    if node != self.getRootEntry().getChild():
 
       # entry.getChild().setParent(parent)
 
@@ -2676,7 +2644,7 @@ class RTree:
 
       next_root = RTreeNode(None, [entry1, entry2], False)
 
-      self.setRoot(next_root)
+      self.getRootEntry().setChild(next_root)
 
       # this causes problems
 
@@ -2762,7 +2730,9 @@ have_resulting_second_entry_from_split):
 
     # if node == None or node == tree.getRoot() or node.getParent() == None:
 
-    if node == tree.getRoot() or node == None or node.getParent() == None:
+    # if node == tree.getRootEntry().getChild() or node == None or node.getParent() == None:
+
+    if node == None:
 
       # print "reached root or parent of root (non-existent)"
 
@@ -2806,7 +2776,15 @@ have_resulting_second_entry_from_split):
 
       # entry = parent.retrieveEntryForChild(node)
 
-      entry = node.getParent().retrieveEntryForChild(node)
+      entry = None
+
+      if node.getParent() == None:
+
+        entry = tree.getRootEntry()
+
+      else:
+
+        entry = node.getParent().retrieveEntryForChild(node)
 
       children = [x.getChild() for x in curr_entries]
 
@@ -3009,7 +2987,9 @@ have_resulting_second_entry_from_split)
 
   def adjustTree(tree, node, resulting_entries_from_split, have_resulting_second_entry_from_split, is_first_call_after_first_pass):
 
-    if node == tree.getRoot():
+    # if node == tree.getRootEntry().getChild():
+
+    if node == None:
 
       # no parent to speak of
 
@@ -3025,9 +3005,17 @@ have_resulting_second_entry_from_split)
 
       curr_entries = node.getEntries()
 
+      entry = None
+
       # print "parent:", parent
 
-      entry = parent.retrieveEntryForChild(node)
+      if node.getParent() == None:
+
+        entry = tree.getRootEntry()
+
+      else:
+
+        entry = parent.retrieveEntryForChild(node)
 
       children = [x.getChild() for x in curr_entries]
 
@@ -3150,7 +3138,7 @@ have_resulting_second_entry_from_split)
 
   def findLeaf(self, entry):
 
-    return self.findLeafHelper(entry, self.getRoot())
+    return self.findLeafHelper(entry, self.getRootEntry().getChild())
 
   def findLeafHelper(self, entry, node):
 
@@ -3184,7 +3172,7 @@ have_resulting_second_entry_from_split)
 
   def delete(self, entry):
 
-    node = self.findLeaf(entry, self.getRoot())
+    node = self.findLeaf(entry, self.getRootEntry().getChild())
 
     if node == None:
 
@@ -3194,7 +3182,7 @@ have_resulting_second_entry_from_split)
 
     self.condenseTree(node)
 
-    root = self.getRoot()
+    root = self.getRootEntry().getChild()
 
     if root.getNumChildren() == 1:
 
@@ -3206,7 +3194,7 @@ have_resulting_second_entry_from_split)
 
       chosen_child = chosen_entry.getChild()
 
-      self.setRoot(chosen_child)
+      self.getRootEntry().setChild(chosen_child)
 
     # if RN is a leaf node
 
@@ -3236,7 +3224,7 @@ have_resulting_second_entry_from_split)
 
     elim_entries = []
 
-    if node != self.getRoot():
+    if node != self.getRootEntry().getChild():
 
       parent = node.getParent()
 
@@ -3329,7 +3317,13 @@ have_resulting_second_entry_from_split)
 
   # result stored in NearestNeigbhor object nearest
 
-  def nearestNeighborSearch(self, node, point, nearest):
+  def nearestNeighborSearch(self, point, nearest):
+
+    root_entry = self.getRootEntry()
+
+    return self.nearestNeighborSearchHelper(root_entry, point, nearest)
+
+  def nearestNeighborSearchHelper(self, entry, point, nearest):
 
     # print self.toString()
 
@@ -3345,7 +3339,13 @@ have_resulting_second_entry_from_split)
 
     # if node.getNumEntries() == 0 and node != self.getRoot():
 
-    if node.isTraditionalLeafNode() == True and node != self.getRoot() and node.getNumEntries() == 0:
+    # if node.isTraditionalLeafNode() == True and node != self.getRootEntry().getChild() and node.getNumEntries() == 0:
+
+    node = entry.getChild()
+
+    if node.isTraditionalLeafNode() == True and node.getNumEntries() == 0:
+
+      curr_entry = entry
 
       # using a more fine-grained definition for leaf
 
@@ -3355,7 +3355,7 @@ have_resulting_second_entry_from_split)
 
       # for i in range(node.getNumEntries()):
 
-      curr_entry = node.getParent().retrieveEntryForChild(node)
+      # curr_entry = node.getParent().retrieveEntryForChild(node)
 
       # curr_entry = node.getIthEntry(i)
 
@@ -3375,11 +3375,13 @@ have_resulting_second_entry_from_split)
 
     else:
 
-      branchList = RTree.genBranchList(point, node)
+      branchList = RTree.genBranchList(point, entry)
 
       branchList = RTree.sortBranchList(point, branchList)
 
-      last = RTree.NNPruneBranchList(node, nearest, branchList, point)
+      # last = RTree.NNPruneBranchList(node, nearest, branchList, point)
+
+      last = RTree.NNPruneBranchList(nearest, branchList, point)
 
       while len(last) != 0:
 
@@ -3389,11 +3391,17 @@ have_resulting_second_entry_from_split)
 
         curr_node = curr_entry.getChild()
 
-        self.nearestNeighborSearch(curr_node, point, nearest)
+        self.nearestNeighborSearchHelper(curr_entry, point, nearest)
 
-        last = RTree.NNPruneBranchList(node, nearest, last, point)
+        last = RTree.NNPruneBranchList(nearest, last, point)
 
-  def kNearestNeighborSearch(self, node, point, kNearest, k):
+  def kNearestNeighborSearch(self, point, kNearest, k):
+
+    root_entry = self.getRootEntry()
+
+    return self.kNearestNeighborSearchHelper(root_entry, point, kNearest, k)
+
+  def kNearestNeighborSearchHelper(self, entry, point, kNearest, k):
 
     # while True:
 
@@ -3417,13 +3425,25 @@ have_resulting_second_entry_from_split)
 
       # if node.getNumEntries() == 0 and node != self.getRoot():
 
-      if node.isTraditionalLeafNode() == True and node != self.getRoot() and node.getNumEntries() == 0:
+      # if node.isTraditionalLeafNode() == True and node != self.getRootEntry().getChild() and node.getNumEntries() == 0:
+
+      node = entry.getChild()
+
+      # print "num. of entries:", node.getNumEntries()
+
+      if node.isTraditionalLeafNode() == True and node.getNumEntries() == 0:
+
+      # if first_node.isTraditionalLeafNode() == True and first_node.getNumEntries() == 0:
+
+        # print "encountering a raw rectangle"
 
         # encountering a raw rectangle
 
         # print node.getChildren()
 
-        curr_entry = node.getParent().retrieveEntryForChild(node)
+        curr_entry = entry
+
+        # curr_entry = node.getParent().retrieveEntryForChild(node)
 
         mbr = curr_entry.getMBR()
 
@@ -3441,7 +3461,9 @@ have_resulting_second_entry_from_split)
 
       else:
 
-        branchList = RTree.genBranchList(point, node)
+        branchList = RTree.genBranchList(point, entry)
+
+        # print len(branchList)
 
         branchList = RTree.sortBranchList(point, branchList)
 
@@ -3453,7 +3475,9 @@ have_resulting_second_entry_from_split)
 
         while len(last) != 0:
 
-          last = RTree.kNNPruneBranchList(node, kNearest, last, point)
+          # last = RTree.kNNPruneBranchList(node, kNearest, last, point)
+
+          last = RTree.kNNPruneBranchList(kNearest, last, point)
 
           if len(last) == 0:
 
@@ -3463,7 +3487,7 @@ have_resulting_second_entry_from_split)
 
           curr_node = curr_entry.getChild()
 
-          self.kNearestNeighborSearch(curr_node, point, kNearest, k)
+          self.kNearestNeighborSearchHelper(curr_entry, point, kNearest, k)
 
           # print len(last)
 
@@ -3471,7 +3495,11 @@ have_resulting_second_entry_from_split)
 
   @staticmethod
 
-  def genBranchList(query_point, node):
+  # def genBranchList(query_point, node):
+
+  def genBranchList(query_point, entry):
+
+    node = entry.getChild()
 
     # come up with a list of entries
 
@@ -3501,7 +3529,9 @@ have_resulting_second_entry_from_split)
 
   @staticmethod
 
-  def NNPruneBranchList(node, nearest, branchList, point):
+  # def NNPruneBranchList(node, nearest, branchList, point):
+
+  def NNPruneBranchList(nearest, branchList, point):
 
     if len(branchList) == 0:
 
@@ -3555,7 +3585,9 @@ have_resulting_second_entry_from_split)
 
   @staticmethod
 
-  def kNNPruneBranchList(node, kNearest, branchList, point):
+  # def kNNPruneBranchList(node, kNearest, branchList, point):
+
+  def kNNPruneBranchList(kNearest, branchList, point):
 
     if len(branchList) == 0:
 
@@ -3765,9 +3797,13 @@ have_resulting_second_entry_from_split)
 
     image = PythonMagick.Image(PythonMagick.Geometry("1536x1536"), "white")
 
-    root = self.getRoot()
+    root_entry = self.getRootEntry()
 
-    root.draw(self, image, 0)
+    entries = [root_entry]
+
+    RTreeEntry.draw(self, entries, image, 0)
+
+    """
 
     image.strokeColor("orange")
 
@@ -3777,7 +3813,9 @@ have_resulting_second_entry_from_split)
 
     multiplier = 3 * 0.8
 
-    offset = (768 * 0.2) / 2
+    # offset = (768 * 0.2) / 2
+
+    offset = (1536 * 0.2) / 2
 
     x1 = 0
 
@@ -3794,6 +3832,8 @@ have_resulting_second_entry_from_split)
     next_x2 = x2 * multiplier + offset
 
     next_y2 = y2 * multiplier + offset
+
+    """
 
     # image.draw(PythonMagick.DrawableRectangle(next_x1, next_y1, next_x2, next_y2))
 
@@ -3911,7 +3951,7 @@ print tree.toString()
 
 nearest_result = NearestNeighbor()
 
-tree.nearestNeighborSearch(tree.getRoot(), location, nearest_result)
+tree.nearestNeighborSearch(location, nearest_result)
 
 close_item = nearest_result.getCloseItem()
 
@@ -3927,7 +3967,7 @@ k = 10
 
 k_nearest_result = KNearestNeighbor(location, PriorityQueue(), k)
 
-tree.kNearestNeighborSearch(tree.getRoot(), location, k_nearest_result, k)
+tree.kNearestNeighborSearch(location, k_nearest_result, k)
 
 close_items = k_nearest_result.getCloseItems()
 
@@ -3936,3 +3976,5 @@ farthest_close_distance = k_nearest_result.getFarthestCloseDistance()
 found_locations = [(x.getX(), x.getY()) for x in close_items]
 
 print found_locations, farthest_close_distance
+
+
