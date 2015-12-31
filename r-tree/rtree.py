@@ -1,3 +1,5 @@
+# 2015-05-22
+
 # r-tree featuring insert, nn and k-nn search with threshold distance
 
 # tie-breaking for same distance is identifier value with largest values appearing earlier

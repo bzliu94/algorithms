@@ -1,3 +1,5 @@
+# 2015-05-22
+
 def drawCircleEvent(draw, left_arc, arc, right_arc, l_y, color_triple):
 
   location = CircleEvent.getIntersectionHelper(l_y, left_arc, arc, right_arc)
