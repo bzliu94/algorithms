@@ -12,6 +12,7 @@ A collection of algorithms.
 9. vam-split r-tree
 10. hamiltonian chain enumeration
 11. mira classifier
+12. json parser
 
 <img src="https://raw.githubusercontent.com/bzliu94/algorithms/master/order-1_voronoi/diagram%207.png" alt="partial voronoi diagram" width="400">
 
