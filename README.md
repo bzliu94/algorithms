@@ -13,6 +13,7 @@ A collection of algorithms.
 10. hamiltonian chain enumeration
 11. mira classifier
 12. json parser
+13. brute-force student id censorer
 
 <img src="https://raw.githubusercontent.com/bzliu94/algorithms/master/order-1_voronoi/diagram%207.png" alt="partial voronoi diagram" width="400">
 
