@@ -6,6 +6,11 @@
 # the grammar is a special case of LL(1) 
 # where all types of tokens share disjoint sets of starting characters
 
+# we dodged a bullet by not specifying FOLLOW sets 
+# for non-terminals that don't have EPSILON as a production, 
+# but if we had, we would have had to include 
+# EOF for object, array, json
+
 # 2016-01-07
 
 # json parser; produces python value for a given json expression
