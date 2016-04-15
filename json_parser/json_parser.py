@@ -1,3 +1,11 @@
+# 2016-04-14
+
+# note that we did something unusual that was fine for this grammar;
+# we have a lookahead character instead of a lookahead token
+
+# the grammar is a special case of LL(1) 
+# where all types of tokens share disjoint sets of starting characters
+
 # 2016-01-07
 
 # json parser; produces python value for a given json expression
