@@ -1,3 +1,10 @@
+# 2016-04-15
+
+# we also dodged a bullet as we have at most one non-EPSILON production 
+# for a non-terminal, so we did not think that we had to choose production 
+# based on the FIRST set of the first symbol in the rule (note that 
+# we are left factored and LL(1), so prefixes are distinct)
+
 # 2016-04-14
 
 # note that we did something unusual that was fine for this grammar;
