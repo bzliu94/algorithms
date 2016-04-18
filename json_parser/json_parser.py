@@ -1,3 +1,8 @@
+# 2016-04-16
+
+# lexer did take time quadratic in n due to how we consume the input string; 
+# fixed by using offset instead of consuming
+
 # 2016-04-15
 
 # we also dodged a bullet as we have at most one non-EPSILON production 
@@ -86,8 +91,10 @@ def getTokens(lexeme_seq_line, OVERALL_RE):
   curr_line = lexeme_seq_line
   regex = re.compile(OVERALL_RE)
   tokens = []
-  while curr_line != "":
-    m = regex.match(curr_line)
+  curr_pos = 0
+  num_chars = len(curr_line)
+  while curr_pos != num_chars:
+    m = regex.match(curr_line, curr_pos)
     lexeme_text = m.group(0)
     token = None
     if m.group("ws") != None:
@@ -100,7 +107,9 @@ def getTokens(lexeme_seq_line, OVERALL_RE):
       token = MiscToken(lexeme_text)
     if token != None:
       tokens.append(token)
-    curr_line = regex.sub("", curr_line, count = 1)
+    # curr_line = regex.sub("", curr_line, count = 1)
+    token_char_size = len(lexeme_text)
+    curr_pos += token_char_size
   return tokens
 """
 STRING
