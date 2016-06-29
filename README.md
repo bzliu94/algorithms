@@ -15,6 +15,7 @@ A collection of algorithms.
 12. json parser
 13. brute-force student id censorer
 14. uri parser
+15. basic incognito k-anonymization with suppression
 
 <img src="https://raw.githubusercontent.com/bzliu94/algorithms/master/order-1_voronoi/diagram%207.png" alt="partial voronoi diagram" width="400">
 

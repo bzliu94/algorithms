@@ -1,0 +1,9 @@
+TIME,ID,CAT,CAT,CAT
+TIME,USER_ID,LOCATION,ACTION_TYPE,OBJECT
+10:00:00,1001,Palo Alto,Ask,Topic: Caltrain
+10:08:00,1002,Palo Alto,Upvote,Topic: Caltrain
+10:32:00,1003,Boston,Ask,Topic: MBTA
+10:06:00,1004,Palo Alto,Downvote,Topic: Caltrain
+10:30:00,1005,Boston,Ask,Topic: MBTA
+10:31:00,1006,Boston,Ask,Topic: MBTA
+10:05:00,1007,Palo Alto,Answer,Topic: Caltrain

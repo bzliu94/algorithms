@@ -1,0 +1,9 @@
+ID,ID,ID,CAT,CAT/SENSITIVE,CONT
+USER_ID,FIRST_NAME,LAST_NAME,ACTION_TYPE,OBJECT,POPULARITY
+1001,John,Smith,Follow,Topic X,100
+1001,John,Smith,Ask,Question A,30
+1001,John,Smith,Answer,Question B,70
+1002,John,Doe,Follow,Topic Y,0
+1002,John,Doe,Answer,Question B,40
+1003,Jane,Smith,Ask,Question B,80
+1003,Jane,Smith,Answer,Question A,20
