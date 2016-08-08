@@ -5,7 +5,7 @@ A collection of algorithms.
 2. r-tree
 3. r-star-tree
 4. ss-tree
-5. random knapsack
+5. random knapsack\*
 6. backtracking knapsack
 7. str bulk-loaded r-tree
 8. improved str bulk-loaded r-tree
@@ -16,6 +16,11 @@ A collection of algorithms.
 13. brute-force student id censorer
 14. uri parser
 15. basic incognito k-anonymization with suppression
+16. naive all-pairs intersected rectangles with static d-fold rectangle tree variant\*\*
+
+\*: not faster than d.p. when d.p. is possible
+
+\*\*: slower than brute force with pypy until n ~= 1000 for d = 35
 
 <img src="https://raw.githubusercontent.com/bzliu94/algorithms/master/order-1_voronoi/diagram%207.png" alt="partial voronoi diagram" width="400">
 
