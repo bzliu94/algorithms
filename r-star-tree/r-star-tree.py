@@ -1965,7 +1965,7 @@ class RTree:
 
       leaf_node.addEntry(entry)
 
-      # this may be unnecessary
+      # this is necessary
 
       entry.getChild().setParent(leaf_node)
 
