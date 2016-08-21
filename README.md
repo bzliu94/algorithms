@@ -17,6 +17,7 @@ A collection of algorithms.
 14. uri parser
 15. basic incognito k-anonymization with suppression
 16. naive all-pairs intersected rectangles with static d-fold rectangle tree variant\*\*
+17. x-tree
 
 \*: not faster than d.p. when d.p. is possible
 
