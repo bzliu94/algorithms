@@ -6,6 +6,10 @@
 
 # we never split a super-node
 
+# updated on 2016-08-23 to fix traditional/non-traditional isLeafNode() distinction
+
+# updated on 2016-08-25 to fix overlap logic for determining when to attempt an overlap-minimal split 
+
 import sys
 import PythonMagick
 import heapq
@@ -78,11 +82,17 @@ class RTreeNode:
     return self.getNumEntries()
   def setParent(self, node):
     self.parent = node
+  def isNonTraditionalLeafNode(self):
+    is_non_traditional_leaf_node = (self.getParent() == None and self.getNumChildren() == 0) or (self.getNumChildren() != 0 and False not in [x.getChild().getNumEntries() == 0 for x in self.getEntries()])
+    return is_non_traditional_leaf_node
+  """
   def isTraditionalLeafNode(self):
     is_traditional_leaf_node = self.getNumEntries() == 0
     return is_traditional_leaf_node
+  """
   def isLeafNode(self):
-    is_leaf_node = (self.getParent() == None and self.getNumChildren() == 0) or (self.getNumChildren() != 0 and False not in [x.getChild().getNumEntries() == 0 for x in self.getEntries()])
+    # is_leaf_node = (self.getParent() == None and self.getNumChildren() == 0) or (self.getNumChildren() != 0 and False not in [x.getChild().getNumEntries() == 0 for x in self.getEntries()])
+    is_leaf_node = self.getNumChildren() == 0
     return is_leaf_node
   def addEntry(self, entry):
     curr_child = entry.getChild()
@@ -296,6 +306,13 @@ class MBR:
         does_enclose = False
         break
     return does_enclose
+  def isEqualTo(self, mbr):
+    upper_left1 = self.getUpperLeft()
+    lower_right1 = self.getLowerRight()
+    upper_left2 = mbr.getUpperLeft()
+    lower_right2 = mbr.getLowerRight()
+    is_equal = upper_left1 == upper_left2 and lower_right1 == lower_right2
+    return is_equal
 class RawMBR(MBR):
   def __init__(self, upper_left, lower_right, contained_item):
     MBR.__init__(self, upper_left, lower_right)
@@ -620,7 +637,10 @@ class RTree:
     return self.chooseLeafHelper(entry, self.getRootEntry().getChild())
   def chooseLeafHelper(self, entry, node):
     if node.isLeafNode() == True:
-      return node
+      if node == self.getRootEntry().getChild():
+        return node
+      else:
+        return node.getParent()
     else:
       entries = node.getEntries()
       candidate_entries = self.chooseEntriesWithMinimalAreaEnlargement(entries, entry)
@@ -633,20 +653,25 @@ class RTree:
     return self.rstarChooseLeafHelper(entry, self.getRootEntry().getChild())
   def rstarChooseLeafHelper(self, entry, node):
     if node.isLeafNode() == True:
-      return node
+      if node == self.getRootEntry().getChild():
+        return node
+      else:
+        return node.getParent()
     else:
       entries = node.getEntries()
       candidate_entries = None
-      if node.isLeafNode() == True:
-        candidate_entries = self.chooseEntriesWithMinimalOverlapEnlargement(entries, entry)
-        if len(candidate_entries) != 1:
-          candidate_entries = self.chooseEntriesWithMinimalAreaEnlargement(candidate_entries, entry)
-        if len(candidate_entries) != 1:
-          candidate_entries = self.resolveEnlargementTie(candidate_entries, entry)
+      # if node.isLeafNode() == True:
+      candidate_entries = self.chooseEntriesWithMinimalOverlapEnlargement(entries, entry)
+      if len(candidate_entries) != 1:
+        candidate_entries = self.chooseEntriesWithMinimalAreaEnlargement(candidate_entries, entry)
+      if len(candidate_entries) != 1:
+        candidate_entries = self.resolveEnlargementTie(candidate_entries, entry)
+      """
       else:
         candidate_entries = self.chooseEntriesWithMinimalAreaEnlargement(entries, entry)
         if len(candidate_entries) != 1:
           candidate_entries = self.resolveEnlargementTie(candidate_entries, entry)
+      """
       chosen_entry = candidate_entries[0]
       chosen_child = chosen_entry.getChild()
       return self.rstarChooseLeafHelper(entry, chosen_child)
@@ -655,16 +680,18 @@ class RTree:
   def chooseSubtree(self, entry, node):
       entries = node.getEntries()
       candidate_entries = None
-      if node.isLeafNode() == True:
-        candidate_entries = self.chooseEntriesWithMinimalOverlapEnlargement(entries, entry)
-        if len(candidate_entries) != 1:
-          candidate_entries = self.chooseEntriesWithMinimalAreaEnlargement(candidate_entries, entry)
-        if len(candidate_entries) != 1:
-          candidate_entries = self.resolveEnlargementTie(candidate_entries, entry)
+      # if node.isLeafNode() == True:
+      candidate_entries = self.chooseEntriesWithMinimalOverlapEnlargement(entries, entry)
+      if len(candidate_entries) != 1:
+        candidate_entries = self.chooseEntriesWithMinimalAreaEnlargement(candidate_entries, entry)
+      if len(candidate_entries) != 1:
+        candidate_entries = self.resolveEnlargementTie(candidate_entries, entry)
+      """
       else:
         candidate_entries = self.chooseEntriesWithMinimalAreaEnlargement(entries, entry)
         if len(candidate_entries) != 1:
           candidate_entries = self.resolveEnlargementTie(candidate_entries, entry)
+      """
       chosen_entry = candidate_entries[0]
       chosen_child = chosen_entry.getChild()
       return chosen_entry
@@ -687,7 +714,7 @@ class RTree:
       elif node.getNumChildren() == 0:
         pass
         return (RTree.SPLIT, node)
-      elif node.isLeafNode() == True:
+      elif node.isNonTraditionalLeafNode() == True:
         node.addEntry(entry)
       follow = self.chooseSubtree(entry, node).getChild()
       result = self.xtreeInsertHelper(entry, follow)
@@ -782,6 +809,7 @@ class RTree:
     union_area = area1 + area2 - overlap_area
     overlap_ratio = overlap_area / (1.0 * max(union_area, 1))
     if overlap_ratio >= RTree.MAX_OVERLAP_RATIO:
+      # raise Exception()
       result2 = self.xtreeOverlapMinimalSplit(node, entry)
       entry_collection3, entry_collection4, dimension, do_fail = result2
       if do_fail == True or len(entry_collection3) < node.getMinimumNumEntriesPerNode() or len(entry_collection4) < node.getMinimumNumEntriesPerNode():
@@ -824,7 +852,8 @@ class RTree:
     E_overall = list(set(curr_node.getEntries() + [entry]))
     return self.rstarSplitNodeHelper(node, E_overall, entry)
   def rstarSplitNodeHelper(self, node, E_overall, entry):
-    prev_leaf_status = node.isLeafNode()
+    # prev_leaf_status = node.isLeafNode()
+    prev_leaf_status = None
     curr_node = node
     m = self.getRootEntry().getChild().getMinimumNumEntriesPerNode()
     M = self.getRootEntry().getChild().getMaximumNumEntriesPerNode()
