@@ -807,7 +807,14 @@ class RTree:
     area1 = mbr1.getArea()
     area2 = mbr2.getArea()
     union_area = area1 + area2 - overlap_area
-    overlap_ratio = overlap_area / (1.0 * max(union_area, 1))
+    ovelap_ratio = None
+    if union_area == 0:
+      if mbr1.isEqualTo(mbr2) == True:
+        overlap_ratio = 1
+      else:
+        overlap_ratio = 0
+    else:
+      overlap_ratio = overlap_area / (1.0 * union_area)
     if overlap_ratio >= RTree.MAX_OVERLAP_RATIO:
       # raise Exception()
       result2 = self.xtreeOverlapMinimalSplit(node, entry)
