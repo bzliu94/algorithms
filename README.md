@@ -19,7 +19,8 @@ A collection of algorithms.
 16. naive all-pairs intersected rectangles with static d-fold rectangle tree variant\*\*\*
 17. x-tree
 18. r-star-tree (d-dimensional)
-19. parallel coordinates plot with interval attribute midpoints
+19. parallel coordinates plot with interval attribute midpoints and cell omission using hidden segments
+20. rule mining parallel coordinates plot user interface
 
 \*: tree is for 2-dimensional objects
 
