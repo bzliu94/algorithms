@@ -10,8 +10,17 @@
 
 # updated on 2016-08-23 to fix traditional/non-traditional isLeafNode() distinction
 
+# updated on 2016-11-03 to re-structure and modify adjustTree(); 
+#   stop at root instead of non-existent parent of root; 
+#   note that there is a bug with setting M to two; 
+#   removed a stray exception call;
+#   also, we implement delete(); note that our tree 
+#   lacks entry-aware nodes
+
+# note that we don't necessarily need Image, ImageDraw, or PythonMagick
+
 import sys
-# import Image, ImageDraw
+import Image, ImageDraw
 import PythonMagick
 import heapq
 class PriorityQueue:
@@ -1147,8 +1156,10 @@ class RTree:
     node1 = RTreeNode(parent, entry_group1, prev_leaf_status)
     node2 = RTreeNode(parent, entry_group2, prev_leaf_status)
     # print "num. of children:", node1.getNumChildren(), node2.getNumChildren()
+    """
     if node2.getNumChildren() == 1:
       raise Exception()
+    """
     for curr_entry in entry_group1:
       curr_entry.getChild().setParent(node1)
     for curr_entry in entry_group2:
@@ -1393,7 +1404,7 @@ have_resulting_second_entry_from_split):
     # if node == tree.getRoot() or node.getParent() == None:
     # if node == None or node == tree.getRoot() or node.getParent() == None:
     # if node == tree.getRootEntry().getChild() or node == None or node.getParent() == None:
-    if node == None:
+    if node.getParent() == None:
       # print "reached root or parent of root (non-existent)"
       # we have reached the root, which has no enclosing mbr
       # however, we may have to handle a split
@@ -1407,11 +1418,19 @@ have_resulting_second_entry_from_split):
         if node.getNumEntries() > node.getMaximumNumEntriesPerNode():
           tree.rstarSplitNode(node, entry2)
       """
+      entry = tree.getRootEntry()
+      curr_entries = entry.getChild().getEntries()
+      children = [x.getChild() for x in curr_entries]
+      mbr_list = [x.getMBR() for x in curr_entries]
+      tight_overall_mbr = CompositeMBR.makeMBR(mbr_list)
+      entry.setMBR(tight_overall_mbr)
+
       return (have_resulting_second_entry_from_split, resulting_entries_from_split)
+      # return (have_resulting_second_entry_from_split, resulting_entries_from_split)
       # return (have_resulting_second_entry_from_split, resulting_entries_from_split)
     else:
       # parent = node.getParent()
-      parent = node
+      parent = node.getParent()
       curr_entries = node.getEntries()
       # print "parent:", parent
       # entry = parent.retrieveEntryForChild(node)
@@ -1471,7 +1490,7 @@ have_resulting_second_entry_from_split):
               raise Exception()
             """
             # return tree.rstarAdjustTree(tree, parent, [entry], False)
-            return tree.rstarAdjustTreeHelper(tree, node.getParent(), [entry], False)
+            return RTree.rstarAdjustTreeHelper(tree, node.getParent(), [entry], False)
           else:
             # ought to split the parent
             # parent.addEntry(entry)
@@ -1496,7 +1515,7 @@ have_resulting_second_entry_from_split):
             # parent.addEntry(e)
             # return tree.rstarAdjustTree(tree, l, [e, ee], True, False)
             # print "parents:", parent, l.getParent()
-            return tree.rstarAdjustTreeHelper(tree, l.getParent(), [e, ee], True)
+            return RTree.rstarAdjustTreeHelper(tree, node.getParent(), [e, ee], True)
             """
             if parent != None:
               return tree.rstarAdjustTree(tree, parent, [e, ee], True)
@@ -1506,9 +1525,9 @@ have_resulting_second_entry_from_split):
         else:
           # return (False, [])
           # return tree.rstarAdjustTree(tree, parent, [entry], False)
-          return tree.rstarAdjustTree(tree, node.getParent(), [entry], False)
+          return RTree.rstarAdjustTreeHelper(tree, node.getParent(), [entry], False)
       else:
-        return tree.rstarAdjustTree(tree, node.getParent(), resulting_entries_from_split, 
+        return RTree.rstarAdjustTreeHelper(tree, node.getParent(), resulting_entries_from_split, 
 have_resulting_second_entry_from_split)
   # adjustTree modifies parents so that their mbr's 
   # are enlarged and the nodes are possibly split 
@@ -1519,6 +1538,7 @@ have_resulting_second_entry_from_split)
   # ended_with_split tells us whether adjustTree ended by splitting a node that is root of a subtree
   """
   # also, when taken w.r.t. an operation that ends with root, ended_with_split is pre-emptive
+  """
   """
   # resulting_entries_from_split give us two entries that are to be children of current node
   # resulting_second_entry_from_split can be omitted
@@ -1568,10 +1588,8 @@ have_resulting_second_entry_from_split)
       # set N to P and set NN to PP if a split occurred, repeat from AT2
       if have_resulting_second_entry_from_split == True:
         parent.removeEntry(entry)
-        """
-        index = parent.getIndexForEntry(entry)
-        parent.removeIthEntry(index)
-        """
+        # index = parent.getIndexForEntry(entry)
+        # parent.removeIthEntry(index)
         # if parent.isFull() == False:
         if (parent.getNumChildren() + 2) <= parent.getMaximumNumEntriesPerNode():
           parent.addEntry(entry)
@@ -1598,13 +1616,11 @@ have_resulting_second_entry_from_split)
     # so that all of them cover E.mbr
     # update the MBRs of nodes that are in the path from root to L, so as to cover L1 and accommodate L2
     # perform splits at the upper levels if necessary
-  # assume item is in tree
-  # returns a node, which can be None if no match is found
-  # finds one match if such a node exists
-  # def delete(self, E, RN):
+  """
   def findLeaf(self, entry):
-    return self.findLeafHelper(entry, self.getRootEntry().getChild())
-  def findLeafHelper(self, entry, node):
+    return self.findLeafHelper(entry, self.getRootEntry())
+  def findLeafHelper(self, entry, curr_entry):
+    """
     if node.isLeafNode() == False:
       curr_mbr = entry.getMBR()
       entries = self.getEntries()
@@ -1619,20 +1635,41 @@ have_resulting_second_entry_from_split)
         else:
           return curr_node
       return None
-  # does not work
+    """
+    # a little stilted since we don't need a O(log(n)) time operation 
+    # to find the entry containing node; just look at parent of entry child
+    if curr_entry.getMBR().isRaw() == True:
+      if entry == curr_entry:
+        return True
+      else:
+        return False
+    else:
+      entries = curr_entry.getChild().getEntries()
+      for next_entry in entries:
+        if MBR.doOverlap(curr_entry.getMBR(), entry.getMBR()) == True:
+          result = self.findLeafHelper(entry, next_entry)
+          if result == True:
+            return result
+      return False
   def delete(self, entry):
-    node = self.findLeaf(entry, self.getRootEntry().getChild())
-    if node == None:
+    # print "hello"
+    did_find_leaf = self.findLeaf(entry)
+    child_node = entry.getChild()
+    # root node never has a raw mbr
+    leaf_node = child_node.getParent() if entry != self.getRootEntry() else None
+    if leaf_node == None:
       raise Exception("expected a node to be found for a delete")
-    node.removeEntry(entry)
-    self.condenseTree(node)
+    leaf_node.removeEntry(entry)
+    self.condenseTree(leaf_node)
     root = self.getRootEntry().getChild()
+    """
     if root.getNumChildren() == 1:
       # shorten tree
       entries = root.getEntries()
       chosen_entry = entries[0]
       chosen_child = chosen_entry.getChild()
-      self.getRootEntry().setChild(chosen_child)
+      self.setRoot(chosen_child)
+    """
     # if RN is a leaf node
       # search all entries of RN to find E.mbr
     # else:
@@ -1645,44 +1682,53 @@ have_resulting_second_entry_from_split)
       # remove the root
       # set as new root its only child
     pass
-  def condenseTree(self, node):
-    elim_entries = []
-    if node != self.getRootEntry().getChild():
-      parent = node.getParent()
-      entry = parent.retrieveEntryForChild(node)
-      if node.isUnderfull() == True:
-        parent.removeEntry(entry)
-        elim_entries.append(entry)
-        # for symmetric treatment
-        if parent.getNumEntries() == 0:
-          parent.setIsLeafNode(True)
+  def condenseTree(self, leaf_node):
+    Q = []
+    self.condenseTreeHelper(leaf_node, Q)
+    # Q is in order of low-level to high-level; 
+    # wish to insert using order of high-level to low-level
+    Q.reverse()
+    for curr_node in Q:
+      # we never encounter a root; we never remove the root
+      parent = curr_node.getParent()
+      curr_entry = parent.retrieveEntryForChild(curr_node)
+      self.insert(curr_entry)
+  def condenseTreeHelper(self, node, Q):
+    if node.getParent() == None:
+      # we are a root node
+      if self.getRootEntry().getChild().getNumChildren() == 0:
+        root_node = RTreeNode(None, [], True)
+        root_mbr = CompositeMBR(None, None, None)
+        root_entry = RTreeEntry(root_mbr, root_node)
+        self.setRootEntry(root_entry)
+        return
       else:
-        # adjust mbr for entry
-        entries = node.getEntries()
-        mbr_list = [x.getMBR() for x in entries]
-        mbr = MBR.makeMBR(mbr_list)
-        entry.setMBR(mbr)
-      self.condenseTree(parent)
-      for entry in elim_entries:
-        self.insert(entry)
-    # given is the leaf L from which an entry E has been deleted
-    # if after the deletion of E, L has fewer than m entries, then remove entirely 
-    # leaf L and reinsert all its entries; updates are propagated upwards and 
-    # the MBRs in the path from root too L are modified (possibly become smaller)
-    # set X = L
-    # let N be the set of nodes that are going to be removed from the tree (initially, N is empty)
-    # while X is not the root
-      # let parent_X be the fther node of X
-      # let E_X be the entry of parent_X that corresponds to X
-      # if X contains less than m entries
-        # remove EX from parent_X
-        # insert X into N
-      # if X has not been removed:
-        # adjust its corresponding MBR E_X.mbr, so as to enclose 
-        # all rectangles in X; note that E_X.mbr may become smaller
-        # set X = parent_X
-      # reinsert all the entries of nodes that are in the set N
-    pass
+        entry = self.getRootEntry()
+        curr_entries = entry.getChild().getEntries()
+        children = [x.getChild() for x in curr_entries]
+        mbr_list = [x.getMBR() for x in curr_entries]
+        tight_overall_mbr = CompositeMBR.makeMBR(mbr_list)
+        entry.setMBR(tight_overall_mbr)
+        return
+    else:
+      if node.isUnderfull() == True:
+        parent = node.getParent()
+        entry = parent.retrieveEntryForChild(node)
+        keep_nodes = [x for x in self.getNodesForNode(node) if x.getParent().retrieveEntryForChild(x).getMBR().isRaw() == True]
+        for keep_node in keep_nodes:
+          Q.append(keep_node)
+        parent.removeEntry(entry)
+      if node.isUnderfull() == False:
+        parent = node.getParent()
+        curr_entries = node.getEntries()
+        entry = parent.retrieveEntryForChild(node)
+        children = [x.getChild() for x in curr_entries]
+        mbr_list = [x.getMBR() for x in curr_entries]
+        tight_overall_mbr = CompositeMBR.makeMBR(mbr_list)
+        entry.setMBR(tight_overall_mbr)
+      self.condenseTreeHelper(node.getParent(), Q)
+      return
+  """
   def BTreeSearch(self, x, k):
     # i = 1
     # while i <= x.n and k >= x.key_i
@@ -1694,6 +1740,7 @@ have_resulting_second_entry_from_split)
     # else:
       # return BTreeSearch(x.c_i, k)
     pass
+  """
   # result stored in NearestNeigbhor object nearest
   def nearestNeighborSearch(self, point, nearest):
     root_entry = self.getRootEntry()
@@ -1956,6 +2003,19 @@ have_resulting_second_entry_from_split)
     """
     # image.draw(PythonMagick.DrawableRectangle(next_x1, next_y1, next_x2, next_y2))
     image.write("tree.png")
+  # prefix order
+  def getNodes(self):
+    node_list = []
+    self.getNodesHelper(self.getRootEntry().getChild(), node_list)
+    return node_list
+  def getNodesHelper(self, node, partial_result):
+    partial_result.append(node)
+    for curr_node in node.getChildren():
+      self.getNodesHelper(curr_node, partial_result)
+  def getNodesForNode(self, node):
+    node_list = []
+    self.getNodesHelper(node, node_list)
+    return node_list
 def main():
   point1 = (100, 100)
   point2 = (50, 100)
@@ -1980,16 +2040,20 @@ def main():
   curr_root = tree.getRootEntry().getChild()
   # entry1.setChild(RTreeNode(tree.getRoot(), [entry1]))
   # insert always adds a leaf
-  tree.insert(RTreeEntry(RawMBR((100, 100), (100, 100), Point(100, 100, 1)), RTreeNode(None, [], True)))
+  curr_entry1 = RTreeEntry(RawMBR((100, 100), (100, 100), Point(100, 100, 1)), RTreeNode(None, [], True))
+  tree.insert(curr_entry1)
+  print tree.toString()
   tree.insert(RTreeEntry(RawMBR((50, 100), (50, 100), Point(50, 100, 2)), RTreeNode(None, [], True)))
   tree.insert(RTreeEntry(RawMBR((60, 100), (60, 100), Point(60, 100, 3)), RTreeNode(None, [], True)))
+  # have an issue with split for this rectangle
   tree.insert(RTreeEntry(RawMBR((70, 100), (70, 100), Point(70, 100, 4)), RTreeNode(None, [], True)))
   print tree.getRootEntry().getChild()
   tree.insert(RTreeEntry(RawMBR((80, 100), (80, 100), Point(80, 100, 5)), RTreeNode(None, [], True)))
-  tree.insert(RTreeEntry(RawMBR((90, 100), (90, 100), Point(90, 100, 6)), RTreeNode(tree.getRootEntry().getChild(), [], True)))
+  tree.insert(RTreeEntry(RawMBR((90, 100), (90, 100), Point(90, 100, 6)), RTreeNode(None, [], True)))
   print tree.toString()
-  tree.insert(RTreeEntry(RawMBR((110, 100), (110, 100), Point(110, 100, 7)), RTreeNode(tree.getRootEntry().getChild(), [], True)))
-  tree.insert(RTreeEntry(RawMBR((120, 100), (120, 100), Point(120, 100, 8)), RTreeNode(tree.getRootEntry().getChild(), [], True)))
+  tree.insert(RTreeEntry(RawMBR((110, 100), (110, 100), Point(110, 100, 7)), RTreeNode(None, [], True)))
+  curr_entry2 = RTreeEntry(RawMBR((120, 100), (120, 100), Point(120, 100, 8)), RTreeNode(None, [], True))
+  tree.insert(curr_entry2)
   print tree.toString()
   nearest_result = NearestNeighbor()
   tree.nearestNeighborSearch((50, 0), nearest_result)
@@ -2003,16 +2067,16 @@ def main():
   x = 0
   y = 0
   location = (x, y)
-  tree = RTree()
+  tree2 = RTree()
   id_value = 1
   # example insert
   point = Point(location[0], location[1], id_value)
-  tree.insert(RTreeEntry(RawMBR(location, location, point), RTreeNode(None, [], True)))
+  tree2.insert(RTreeEntry(RawMBR(location, location, point), RTreeNode(None, [], True)))
   # retrieve a string representation of tree
-  print tree.toString()
+  print tree2.toString()
   # example nn query
   nearest_result = NearestNeighbor()
-  tree.nearestNeighborSearch(location, nearest_result)
+  tree2.nearestNeighborSearch(location, nearest_result)
   close_item = nearest_result.getCloseItem()
   distance = nearest_result.getDistance()
   found_location = (close_item.getX(), close_item.getY())
@@ -2020,10 +2084,35 @@ def main():
   # example k-nn query
   k = 10
   k_nearest_result = KNearestNeighbor(location, PriorityQueue(), k)
-  tree.kNearestNeighborSearch(location, k_nearest_result, k)
+  tree2.kNearestNeighborSearch(location, k_nearest_result, k)
   close_items = k_nearest_result.getCloseItems()
   farthest_close_distance = k_nearest_result.getFarthestCloseDistance()
   found_locations = [(x.getX(), x.getY()) for x in close_items]
   print found_locations, farthest_close_distance
+
+  print tree.toString()
+  tree.delete(curr_entry2)
+  tree.delete(curr_entry1)
+  tree.insert(curr_entry2)
+  print tree.toString()
+
+  tree3 = RTree()
+
+  import random
+  points = []
+  for i in xrange(10):
+    x = int(random.random() * 1000)
+    y = int(random.random() * 1000)
+    point = (x, y)
+    points.append(point)
+  for point in points:
+    tree3.insert(RTreeEntry(RawMBR(point, point, None), RTreeNode(None, [], True)))
+  print tree3.toString()
+
+  entries = [x.getParent().retrieveEntryForChild(x) for x in tree3.getNodes() if x.getParent() != None and x.getParent().retrieveEntryForChild(x).getMBR().isRaw() == True]
+  for entry in entries:
+    tree3.delete(entry)
+  print tree3.toString()
+
 if __name__ == "__main__":
   main()

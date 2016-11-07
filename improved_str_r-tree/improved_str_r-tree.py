@@ -8,9 +8,19 @@
 
 # updated on 2016-08-23 to fix traditional/non-traditional isLeafNode() distinction
 
+# updated on 2016-11-03 to re-structure and modify adjustTree(); 
+#   stop at root instead of non-existent parent of root; 
+#   note that there is a bug with setting M to two; 
+#   also, we implement delete(); note that our tree 
+#   lacks entry-aware nodes; made bug fix for adjustTree()
+
+# feel free to ignore topic/question-related parts
+
+# note that we don't necessarily need Image, ImageDraw, or PythonMagick
+
 import sys
-# import Image, ImageDraw
-# import PythonMagick
+import Image, ImageDraw
+import PythonMagick
 # from priority_queue.QuickRemovePriorityQueue import *
 def getTopicDistance(topic_id, topic_id_to_point_dict, query_point):
   point = topic_id_to_point_dict[topic_id]
@@ -1713,6 +1723,7 @@ class RTree:
       mbr_list = [x.getMBR() for x in curr_entries]
       tight_overall_mbr = CompositeMBR.makeMBR(mbr_list)
       entry.setMBR(tight_overall_mbr)
+  """
   # adjust min. bounding rectangles, propagate a split, and handle pointer changes
   # node "node" is not the node that is shared by two nodes 
   #   as a parent for a split and that gains an entry; 
@@ -1731,14 +1742,6 @@ have_resulting_second_entry_from_split):
   # def rstarAdjustTree(tree, node, resulting_entries_from_split, have_resulting_second_entry_from_split, is_first_call_after_first_pass):
     # print "adjusting tree"
     # print "pre-adjust-tree tree:", tree.toNumChildrenString()
-    """
-    e = None
-    ee = None
-    if have_resulting_second_entry_from_split == True:
-      e, ee = resulting_entries_from_split
-    else:
-      e = resulting_entries_from_split[0]
-    """
     # if node == tree.getRoot() or node.getParent() == None:
     # if node == None or node == tree.getRoot() or node.getParent() == None:
     # if node == tree.getRootEntry().getChild() or node == None or node.getParent() == None:
@@ -1750,12 +1753,6 @@ have_resulting_second_entry_from_split):
       # print "reach root case"
       # however, we should modify pointers
       # print "num. entries:", resulting_entries_from_split[0].getChild().getNumEntries()
-      """
-      if have_resulting_second_entry_from_split == True:
-        entry1, entry2 = resulting_entries_from_split
-        if node.getNumEntries() > node.getMaximumNumEntriesPerNode():
-          tree.rstarSplitNode(node, entry2)
-      """
       return (have_resulting_second_entry_from_split, resulting_entries_from_split)
       # return (have_resulting_second_entry_from_split, resulting_entries_from_split)
     else:
@@ -1800,10 +1797,6 @@ have_resulting_second_entry_from_split):
         # containing E_NN and all P's old entries
         # set N to P and set NN to PP if a split occurred, repeat from AT2
         if have_resulting_second_entry_from_split == True:
-          """
-          index = parent.getIndexForEntry(entry)
-          parent.removeIthEntry(index)
-          """
           # remove an entry so as to clean
           # parent.removeEntry(entry)
           # if parent.isFull() == False:
@@ -1815,10 +1808,6 @@ have_resulting_second_entry_from_split):
             # entry.getChild().setParent(parent)
             partner_entry.getChild().setParent(parent)
             # return tree.rstarAdjustTree(tree, parent, [entry], False, False)
-            """
-            if tree.hasConsistentNonTraditionalLeafDepthValues() == False:
-              raise Exception()
-            """
             # return tree.rstarAdjustTree(tree, parent, [entry], False)
             return tree.rstarAdjustTreeHelper(tree, node.getParent(), [entry], False)
           else:
@@ -1827,31 +1816,13 @@ have_resulting_second_entry_from_split):
             # entry.getChild().setParent(parent)
             # following is a risky choice
             # print tree.getRoot() == parent
-            """
-            print "pre-adjust-tree-split-node tree:", tree.toNumChildrenString()
-            print "pre-split num-children string:", tree.toNumChildrenStringHelper(parent)
-            print "pre-split splitting root:", parent == tree.getRoot()
-            print "partner subtree:", tree.toNumChildrenStringHelper(partner_entry.getChild())
-            """
             # split_result = tree.rstarSplitNode(parent.getChildren()[0], partner_entry)
             split_result = tree.rstarSplitNode(parent, partner_entry)
             l, ll, e, ee = split_result
-            """
-            print "post-split did split root:", parent == tree.getRoot()
-            print "post-split replacement root exists:", l.getParent() == tree.getRoot()
-            print "post-split num-children string:", tree.toNumChildrenStringHelper(l.getParent())
-            print "post-adjust-tree-split-node tree:", tree.toNumChildrenString()
-            """
             # parent.addEntry(e)
             # return tree.rstarAdjustTree(tree, l, [e, ee], True, False)
             # print "parents:", parent, l.getParent()
             return tree.rstarAdjustTreeHelper(tree, l.getParent(), [e, ee], True)
-            """
-            if parent != None:
-              return tree.rstarAdjustTree(tree, parent, [e, ee], True)
-            else:
-              return (True, [e, ee])
-            """
         else:
           # return (False, [])
           # return tree.rstarAdjustTree(tree, parent, [entry], False)
@@ -1859,6 +1830,7 @@ have_resulting_second_entry_from_split):
       else:
         return tree.rstarAdjustTree(tree, node.getParent(), resulting_entries_from_split, 
 have_resulting_second_entry_from_split)
+  """
   # adjustTree modifies parents so that their mbr's 
   # are enlarged and the nodes are possibly split 
   # with the two resulting pieces being added 
@@ -1872,22 +1844,39 @@ have_resulting_second_entry_from_split)
   # resulting_entries_from_split give us two entries that are to be children of current node
   # resulting_second_entry_from_split can be omitted
   @staticmethod
-  def adjustTree(tree, node, resulting_entries_from_split, have_resulting_second_entry_from_split, is_first_call_after_first_pass):
+  def rstarAdjustTree(tree, node, resulting_entries_from_split, have_resulting_second_entry_from_split):
+    # return tree.rstarAdjustTreeHelper(tree, node.getParent(), resulting_entries_from_split, have_resulting_second_entry_from_split)
+    return tree.rstarAdjustTreeHelper(tree, node, resulting_entries_from_split, have_resulting_second_entry_from_split)
+  @staticmethod
+  def rstarAdjustTreeHelper(tree, node, resulting_entries_from_split, have_resulting_second_entry_from_split):
     # if node == tree.getRootEntry().getChild():
-    if node == None:
+    if node.getParent() == None:
       # no parent to speak of
       # print "reach root case"
-      return (False, [])
+      # return (False, [])
+
+      entry = tree.getRootEntry()
+      curr_entries = entry.getChild().getEntries()
+      children = [x.getChild() for x in curr_entries]
+      mbr_list = [x.getMBR() for x in curr_entries]
+      tight_overall_mbr = CompositeMBR.makeMBR(mbr_list)
+      entry.setMBR(tight_overall_mbr)
+
+      return (have_resulting_second_entry_from_split, resulting_entries_from_split)
+
       # return (have_resulting_second_entry_from_split, resulting_entries_from_split)
     else:
       parent = node.getParent()
       curr_entries = node.getEntries()
       entry = None
       # print "parent:", parent
+      """
       if node.getParent() == None:
         entry = tree.getRootEntry()
       else:
         entry = parent.retrieveEntryForChild(node)
+      """
+      entry = parent.retrieveEntryForChild(node)
       children = [x.getChild() for x in curr_entries]
       mbr_list = [x.getMBR() for x in curr_entries]
       tight_overall_mbr = CompositeMBR.makeMBR(mbr_list)
@@ -1904,7 +1893,8 @@ have_resulting_second_entry_from_split)
       if have_resulting_second_entry_from_split == True:
         first_entry, second_entry = resulting_entries_from_split
         partner_entry = second_entry
-      if have_resulting_second_entry_from_split == True and is_first_call_after_first_pass != True:
+      # if have_resulting_second_entry_from_split == True and is_first_call_after_first_pass != True:
+      if have_resulting_second_entry_from_split == True:
         partner_node = partner_entry.getChild()
         partner_entries = partner_node.getEntries()
         partner_children = [x.getChild() for x in partner_entries]
@@ -1915,29 +1905,34 @@ have_resulting_second_entry_from_split)
       # otherwise, invoke SplitNode to produce P and PP 
       # containing E_NN and all P's old entries
       # set N to P and set NN to PP if a split occurred, repeat from AT2
-      if have_resulting_second_entry_from_split == True:
-        parent.removeEntry(entry)
-        """
-        index = parent.getIndexForEntry(entry)
-        parent.removeIthEntry(index)
-        """
-        # if parent.isFull() == False:
-        if (parent.getNumChildren() + 2) <= parent.getMaximumNumEntriesPerNode():
-          parent.addEntry(entry)
-          parent.addEntry(partner_entry)
-          entry.getChild().setParent(parent)
-          partner_entry.getChild().setParent(parent)
-          return tree.adjustTree(tree, parent, [entry], False, False)
+      # if have_resulting_second_entry_from_split == True:
+      if node.isLeafNode() == False:
+        if have_resulting_second_entry_from_split == True:
+          # parent.removeEntry(entry)
+          """
+          index = parent.getIndexForEntry(entry)
+          parent.removeIthEntry(index)
+          """
+          # if parent.isFull() == False:
+          if (parent.getNumChildren() + 1) <= parent.getMaximumNumEntriesPerNode():
+            # parent.addEntry(entry)
+            parent.addEntry(partner_entry)
+            # entry.getChild().setParent(parent)
+            partner_entry.getChild().setParent(parent)
+            return RTree.rstarAdjustTreeHelper(tree, parent, [entry], False)
+          else:
+            # ought to split
+            # parent.addEntry(entry)
+            # entry.getChild().setParent(parent)
+            # following is a risky choice
+            split_result = tree.rstarSplitNode(parent, partner_entry)
+            l, ll, e, ee = split_result
+            return RTree.rstarAdjustTreeHelper(tree, node.getParent(), [e, ee], True)
         else:
-          # ought to split
-          parent.addEntry(entry)
-          entry.getChild().setParent(parent)
-          # following is a risky choice
-          split_result = tree.splitNode(parent, partner_entry)
-          l, ll, e, ee = split_result
-          return tree.adjustTree(tree, l, [e, ee], True, False)
+          return RTree.rstarAdjustTreeHelper(tree, node.getParent(), [entry], False)
       else:
-        return (False, [])
+        return RTree.rstarAdjustTreeHelper(tree, node.getParent(), resulting_entries_from_split, 
+have_resulting_second_entry_from_split)
           # note that we do not have to update mbr for parent anymore 
           # given that a split changes how mbrs are organized, 
           # but the elements are not changed
@@ -1952,8 +1947,9 @@ have_resulting_second_entry_from_split)
   # finds one match if such a node exists
   # def delete(self, E, RN):
   def findLeaf(self, entry):
-    return self.findLeafHelper(entry, self.getRootEntry().getChild())
-  def findLeafHelper(self, entry, node):
+    return self.findLeafHelper(entry, self.getRootEntry())
+  def findLeafHelper(self, entry, curr_entry):
+    """
     if node.isLeafNode() == False:
       curr_mbr = entry.getMBR()
       entries = self.getEntries()
@@ -1968,22 +1964,41 @@ have_resulting_second_entry_from_split)
         else:
           return curr_node
       return None
-  # does not work
+    """
+    # a little stilted since we don't need a O(log(n)) time operation 
+    # to find the entry containing node; just look at parent of entry child
+    if curr_entry.getMBR().isRaw() == True:
+      if entry == curr_entry:
+        return True
+      else:
+        return False
+    else:
+      entries = curr_entry.getChild().getEntries()
+      for next_entry in entries:
+        if MBR.doOverlap(curr_entry.getMBR(), entry.getMBR()) == True:
+          result = self.findLeafHelper(entry, next_entry)
+          if result == True:
+            return result
+      return False
   def delete(self, entry):
-    node = self.findLeaf(entry, self.getRootEntry().getChild())
-    """
-    if node == None:
+    # print "hello"
+    did_find_leaf = self.findLeaf(entry)
+    child_node = entry.getChild()
+    # root node never has a raw mbr
+    leaf_node = child_node.getParent() if entry != self.getRootEntry() else None
+    if leaf_node == None:
       raise Exception("expected a node to be found for a delete")
-    """
-    node.removeEntry(entry)
-    self.condenseTree(node)
+    leaf_node.removeEntry(entry)
+    self.condenseTree(leaf_node)
     root = self.getRootEntry().getChild()
+    """
     if root.getNumChildren() == 1:
       # shorten tree
       entries = root.getEntries()
       chosen_entry = entries[0]
       chosen_child = chosen_entry.getChild()
-      self.getRootEntry().setChild(chosen_child)
+      self.setRoot(chosen_child)
+    """
     # if RN is a leaf node
       # search all entries of RN to find E.mbr
     # else:
@@ -1996,44 +2011,55 @@ have_resulting_second_entry_from_split)
       # remove the root
       # set as new root its only child
     pass
-  def condenseTree(self, node):
-    elim_entries = []
-    if node != self.getRootEntry().getChild():
-      parent = node.getParent()
-      entry = parent.retrieveEntryForChild(node)
-      if node.isUnderfull() == True:
-        parent.removeEntry(entry)
-        elim_entries.append(entry)
-        # for symmetric treatment
-        if parent.getNumEntries() == 0:
-          parent.setIsLeafNode(True)
+  def condenseTree(self, leaf_node):
+    Q = []
+    self.condenseTreeHelper(leaf_node, Q)
+    # Q is in order of low-level to high-level; 
+    # wish to insert using order of high-level to low-level
+    Q.reverse()
+    for curr_node in Q:
+      # we never encounter a root; we never remove the root
+      parent = curr_node.getParent()
+      curr_entry = parent.retrieveEntryForChild(curr_node)
+      self.insert(curr_entry)
+  def condenseTreeHelper(self, node, Q):
+    if node.getParent() == None:
+      # we are a root node
+      if self.getRootEntry().getChild().getNumChildren() == 0:
+        root_node = RTreeNode(None, [], True)
+        root_mbr = CompositeMBR(None, None, None)
+        root_entry = RTreeEntry(root_mbr, root_node)
+        self.setRootEntry(root_entry)
+        return
       else:
-        # adjust mbr for entry
-        entries = node.getEntries()
-        mbr_list = [x.getMBR() for x in entries]
-        mbr = MBR.makeMBR(mbr_list)
-        entry.setMBR(mbr)
-      self.condenseTree(parent)
-      for entry in elim_entries:
-        self.insert(entry)
-    # given is the leaf L from which an entry E has been deleted
-    # if after the deletion of E, L has fewer than m entries, then remove entirely 
-    # leaf L and reinsert all its entries; updates are propagated upwards and 
-    # the MBRs in the path from root too L are modified (possibly become smaller)
-    # set X = L
-    # let N be the set of nodes that are going to be removed from the tree (initially, N is empty)
-    # while X is not the root
-      # let parent_X be the fther node of X
-      # let E_X be the entry of parent_X that corresponds to X
-      # if X contains less than m entries
-        # remove EX from parent_X
-        # insert X into N
-      # if X has not been removed:
-        # adjust its corresponding MBR E_X.mbr, so as to enclose 
-        # all rectangles in X; note that E_X.mbr may become smaller
-        # set X = parent_X
-      # reinsert all the entries of nodes that are in the set N
-    pass
+        entry = self.getRootEntry()
+        curr_entries = entry.getChild().getEntries()
+        children = [x.getChild() for x in curr_entries]
+        mbr_list = [x.getMBR() for x in curr_entries]
+        tight_overall_mbr = CompositeMBR.makeMBR(mbr_list)
+        entry.setMBR(tight_overall_mbr)
+        return
+    else:
+      if node.isUnderfull() == True:
+        parent = node.getParent()
+        entry = parent.retrieveEntryForChild(node)
+        keep_nodes = [x for x in self.getNodesForNode(node) if x.getParent().retrieveEntryForChild(x).getMBR().isRaw() == True]
+        for keep_node in keep_nodes:
+          Q.append(keep_node)
+        parent.removeEntry(entry)
+        # Q.append(entry)
+        # raise Exception()
+      if node.isUnderfull() == False:
+        parent = node.getParent()
+        curr_entries = node.getEntries()
+        entry = parent.retrieveEntryForChild(node)
+        children = [x.getChild() for x in curr_entries]
+        mbr_list = [x.getMBR() for x in curr_entries]
+        tight_overall_mbr = CompositeMBR.makeMBR(mbr_list)
+        entry.setMBR(tight_overall_mbr)
+      self.condenseTreeHelper(node.getParent(), Q)
+      return
+  """
   def BTreeSearch(self, x, k):
     # i = 1
     # while i <= x.n and k >= x.key_i
@@ -2045,6 +2071,7 @@ have_resulting_second_entry_from_split)
     # else:
       # return BTreeSearch(x.c_i, k)
     pass
+  """
   # result stored in NearestNeigbhor object nearest
   def nearestNeighborSearch(self, point, nearest):
     root_entry = self.getRootEntry()
@@ -2417,9 +2444,21 @@ have_resulting_second_entry_from_split)
     """
     # image.draw(PythonMagick.DrawableRectangle(next_x1, next_y1, next_x2, next_y2))
     image.write("tree.png")
+  # prefix order
+  def getNodes(self):
+    node_list = []
+    self.getNodesHelper(self.getRootEntry().getChild(), node_list)
+    return node_list
+  def getNodesHelper(self, node, partial_result):
+    partial_result.append(node)
+    for curr_node in node.getChildren():
+      self.getNodesHelper(curr_node, partial_result)
+  def getNodesForNode(self, node):
+    node_list = []
+    self.getNodesHelper(node, node_list)
+    return node_list
 def main():
 
-  """
   point1 = (100, 100)
   point2 = (50, 100)
   point3 = (60, 100)
@@ -2428,6 +2467,7 @@ def main():
   point6 = (90, 100)
   point7 = (110, 100)
   point8 = (120, 100)
+  # this is inconsistent with other implementations; item stored is arbitrary
   mbr1 = RawMBR((100, 100), (100, 100), point1)
   mbr2 = RawMBR((50, 100), (50, 100), point2)
   mbr3 = CompositeMBR((50, 100), (100, 100), [mbr1, mbr2])
@@ -2452,16 +2492,18 @@ def main():
   topic_id_to_point_dict[6] = point6
   topic_id_to_point_dict[7] = point7
   topic_id_to_point_dict[8] = point8
-  tree.insert(RTreeEntry(RawMBR((100, 100), (100, 100), 1), RTreeNode(None, [], True)))
+  curr_entry1 = RTreeEntry(RawMBR((100, 100), (100, 100), 1), RTreeNode(None, [], True))
+  tree.insert(curr_entry1)
   tree.insert(RTreeEntry(RawMBR((50, 100), (50, 100), 2), RTreeNode(None, [], True)))
   tree.insert(RTreeEntry(RawMBR((60, 100), (60, 100), 3), RTreeNode(None, [], True)))
   tree.insert(RTreeEntry(RawMBR((70, 100), (70, 100), 4), RTreeNode(None, [], True)))
   print tree.getRootEntry().getChild()
   tree.insert(RTreeEntry(RawMBR((80, 100), (80, 100), 5), RTreeNode(None, [], True)))
-  tree.insert(RTreeEntry(RawMBR((90, 100), (90, 100), 6), RTreeNode(tree.getRootEntry().getChild(), [], True)))
+  tree.insert(RTreeEntry(RawMBR((90, 100), (90, 100), 6), RTreeNode(None, [], True)))
   print tree.toString()
-  tree.insert(RTreeEntry(RawMBR((110, 100), (110, 100), 7), RTreeNode(tree.getRootEntry().getChild(), [], True)))
-  tree.insert(RTreeEntry(RawMBR((120, 100), (120, 100), 8), RTreeNode(tree.getRootEntry().getChild(), [], True)))
+  tree.insert(RTreeEntry(RawMBR((110, 100), (110, 100), 7), RTreeNode(None, [], True)))
+  curr_entry2 = RTreeEntry(RawMBR((120, 100), (120, 100), 8), RTreeNode(None, [], True))
+  tree.insert(curr_entry2)
   print tree.toString()
 
   # example nn query
@@ -2480,300 +2522,27 @@ def main():
   farthest_close_distance = k_nearest_result.getFarthestCloseDistance()
   found_locations = [topic_id_to_point_dict[x] for x in close_items]
   print found_locations, farthest_close_distance
-  """
 
-  import sys
-  import string
-  stream = sys.stdin
-  # stream = open("tests/official/test3_shortened.in")
-  # stream = open("../tests/official/test2.in")
-  # stream = open("../tests/official/test3.in")
-  stream = open("../tests/official/test0.in")
-  # stream = open("../tests/official/test1.in")
-  # stream = open("tests/official/test2.in")
-  # stream = open("../tests/official/test3.in")
-  # stream = open("../tests/official/test4.in")
-  # stream = open("../tests/official/test4_shortened.in")
-  # stream = open("../tests/official/test9.in")
-  # stream = open("tests/test4.in")
-  # stream = open("tests/test6.in")
-  line = stream.readline()
-  line = line.rstrip("\n")
-  args = line.split(" ")
-  args = [string.atol(x) for x in args if x != ""]
-  # T, Q, N
-  T = int(args[0])
-  Q = int(args[1])
-  N = int(args[2])
-  # print T, Q, N
-  topics = []
-  questions = []
-  queries = []
-  for i in range(T):
-    line = stream.readline()
-    line = line.rstrip("\n")
-    args = line.split(" ")
-    id_value = int(args[0])
-    x = float(args[1])
-    y = float(args[2])
-    # print x, y
-    topic = (id_value, x, y)
-    topics.append(topic)
-  for i in range(Q):
-    line = stream.readline()
-    line = line.rstrip("\n")
-    args = line.split(" ")
-    args = [string.atol(x) for x in args if x != ""]
-    id_value = int(args[0])
-    num_topics = int(args[1])
-    topic_id_values = None
-    if num_topics != 0:
-      topic_id_values = [int(x) for x in args[2 : ]]
-    # print id_value, num_topics, topic_id_values
-    question = (id_value, num_topics, topic_id_values)
-    questions.append(question)
-  for i in range(N):
-    line = stream.readline()
-    line = line.rstrip("\n")
-    args = line.split(" ")
-    args = [x for x in args if x != ""]
-    first_arg = args[0]
-    remaining_args = args[1 : ]
-    query_char = first_arg
-    """
-    if query_char != "t" and query_char != "q":
-      raise Exception("encountered an unexpected query type")
-    """
-    is_topic_query = query_char == "t"
-    is_question_query = query_char == "q"
-    num_items = int(remaining_args[0])
-    x = float(remaining_args[1])
-    y = float(remaining_args[2])
-    query = (is_topic_query, num_items, x, y)
-    queries.append(query)
-  # print "topics:", topics
-  # print "questions:", questions
-  # print "queries:", queries
-  # tree = RTree()
-  from collections import defaultdict
-  point_to_id_dict = defaultdict(list)
-  topic_id_to_question_id_dict = defaultdict(list)
-  question_id_to_topic_id_dict = defaultdict(list)
-  topic_id_to_point_dict = {}
+  print tree.toString()
+  tree.delete(curr_entry2)
+  tree.delete(curr_entry1)
+  tree.insert(curr_entry2)
+  print tree.toString()
+
+  import random
   points = []
-  for topic in topics:
-    # print "tree:", tree.toNumChildrenString()
-    # print "tree:", tree.toDepthString()
-    id_value, x, y = topic
-    # print "encountered topic with id " + str(id_value) + " and location " + str((x, y))
-    location = (x, y)
-    """
-    k = 5
-    k_nearest_result = KNearestNeighbor(location, PriorityQueue(), k)
-    tree.kNearestNeighborSearch(tree.getRoot(), location, k_nearest_result, k)
-    close_items = k_nearest_result.getCloseItems()
-    matching_close_items = [x for x in close_items if x[0] == 962736.90078]
-    num_matching_close_items = len(matching_close_items)
-    print num_matching_close_items
-    if num_matching_close_items > 1:
-      raise Exception()
-    """
-    do_stop = False
-    # if x == 626751.4217:
-    """
-    if x == 962736.90078:
-      do_stop = True
-    """
-    # print location
-    """
-    if x == 732847.80148340:
-      do_stop = True
-      # raise Exception()
-    """
-    # point = Point(x, y, id_value)
-    point = Point(location[0], location[1], id_value)
+  for i in xrange(10):
+    x = int(random.random() * 1000)
+    y = int(random.random() * 1000)
+    point = Point(x, y, i)
     points.append(point)
-    # removed
-    # tree.insert(RTreeEntry(RawMBR(location, location, point), RTreeNode(None, [], True)))
-    # print tree.toString()
-    point_to_id_dict[location].append(id_value)
-    topic_id_to_point_dict[id_value] = location
-    # 27866 835394.40839 27351.7181193
-    # 26616 975239.975050 325034.98826
-  topic_tree = RTree.construct(points)
-  for question in questions:
-    id_value, num_topics, topic_id_values = question
-    if num_topics == 0:
-      topic_id_values = []
-    # print "encountered question with id " + str(id_value) + ", num. of topics related of " + str(num_topics) + " and topic id value collection of " + str(topic_id_values)
-    for topic_id in topic_id_values:
-      # print "(question id value, topic id value):", (id_value, topic_id)
-      topic_id_to_question_id_dict[topic_id].append(id_value)
-    question_id_to_topic_id_dict[id_value] = topic_id_values
-  # print "question id values for topic id value zero:", topic_id_to_question_id_dict[0]
-  question_associated_points = []
-  """
-  for point in points:
-    location = (point.getX(), point.getY())
-    topic_id_value = point_to_id_dict[location][0]
-    num_questions_associated = len(topic_id_to_question_id_dict[topic_id_value])
-    if num_questions_associated > 0:
-      question_associated_points.append(point)
-  """
-  # question_associated_topic_tree = RTree.construct(question_associated_points)
-  for query in queries:
-    is_topic_query, num_items, x, y = query
-    # print "encountered a query of type " + ("topic" if (is_topic_query == True) else "question") + ", num. items of " + str(num_items) + ", and location " + str((x, y))
-    points = None
-    if is_topic_query == True:
-      location = (x, y)
-      k = num_items
-      k_nearest_result = TopicKNearestNeighbor(location, PriorityQueue(), topic_id_to_point_dict, k)
-      # nearest_result = NearestNeighbor()
-      # tree.kNearestNeighborSearch(tree.getRootEntry().getChild(), location, k_nearest_result, k)
-      # tree.kNearestNeighborSearch(location, k_nearest_result, k)
-      topic_tree.TopicKNearestNeighborBestFirstSearch(location, k_nearest_result, k, point_to_id_dict)
-      # tree.nearestNeighborSearch(location, nearest_result)
-      # print nearest_result.toString()
-      # print "num. items in priority queue:", k_nearest_result.close_item_pq.getSize()
-      # print k_nearest_result.getCloseItems()
-      # points = k_nearest_result.getCloseItems()
-      # points = [nearest_result.getCloseItem()]
-      # locations = [(x.getX(), x.getY()) for x in points]
-      # print "points:", points
-      # print points
-      # print tree.toString()
-      # non_flat_id_values = [point_to_id_dict[x] for x in locations]
-      """
-      flat_id_values = None
-      if len(non_flat_id_values) == 0:
-        flat_id_values = []
-      else:
-        flat_id_values = reduce(lambda x, y: x + y, non_flat_id_values)
-      """
-      flat_id_values = k_nearest_result.getCloseItems()
-      # print flat_id_values
-      # unique_id_values = list(set(flat_id_values))
-      unique_id_values = flat_id_values
-      # print unique_id_values
-      tagged_topic_key_list = [(x, getTopicKey(x, topic_id_to_point_dict, location)) for x in unique_id_values]
-      # print tagged_topic_key_list
-      sorted_tagged_topic_key_list = sorted(tagged_topic_key_list, cmp = lambda x, y: compare_items(x[1], y[1]))
-      sorted_topic_id_list = [x[0] for x in sorted_tagged_topic_key_list]
-      # sorted_topic_id_list = flat_id_values
-      """
-      for topic_id in sorted_topic_id_list:
-        distance = getTopicDistance(topic_id, topic_id_to_point_dict, location)
-        print distance
-      """
-      # print tagged_topic_key_list
-      culled_sorted_topic_id_list = sorted_topic_id_list[ : num_items]
-      culled_sorted_topic_id_str_list = [str(x) for x in culled_sorted_topic_id_list]
-      print string.join(culled_sorted_topic_id_str_list, " ")
-      # print "k-nearest-neighbor result:", k_nearest_result.toString()
-    elif is_topic_query == False:
-      location = (x, y)
-      # k = num_items * 10
-      k = num_items
-      k_nearest_result = QuestionKNearestNeighbor(location, PriorityQueue(), topic_id_to_point_dict, question_id_to_topic_id_dict, k)
-      # nearest_result = NearestNeighbor()
-      # tree.kNearestNeighborSearch(tree.getRootEntry().getChild(), location, k_nearest_result, k)
-      # tree.kNearestNeighborSearch(location, k_nearest_result, k)
-      # question_associated_topic_tree.QuestionKNearestNeighborBestFirstSearch(location, k_nearest_result, k, topic_id_to_question_id_dict)
-      topic_tree.QuestionKNearestNeighborBestFirstSearch(location, k_nearest_result, k, topic_id_to_question_id_dict)
-      # tree.nearestNeighborSearch(tree.getRoot(), location, nearest_result)
-      # tree.nearestNeighborSearch(location, nearest_result)
-      # print nearest_result.toString()
-      # print k_nearest_result.getCloseItems()
-      # points = k_nearest_result.getCloseItems()
-      # print points
-      # points = [nearest_result.getCloseItem()]
-      # locations = [(x.getX(), x.getY()) for x in points]
-      # non_flat_id_values = [point_to_id_dict[x] for x in locations]
-      # print non_flat_id_values
-      # flat_id_values = None
-      """
-      if len(points) == 0:
-        flat_id_values = []
-      else:
-        flat_id_values = reduce(lambda x, y: x + y, non_flat_id_values, [])
-      unique_id_values = list(set(flat_id_values))
-      non_flat_question_id_values = [topic_id_to_question_id_dict[x] for x in unique_id_values]
-      flat_question_id_values = None
-      if len(non_flat_question_id_values) == 0:
-        flat_question_id_values = []
-      else:
-        flat_question_id_values = reduce(lambda x, y: x + y, non_flat_question_id_values)
-      """
-      flat_question_id_values = k_nearest_result.getCloseItems()
-      """
-      unique_question_id_values = list(set(flat_question_id_values))
-      # print unique_question_id_values
-      # print flat_question_id_values
-      # question_id_tagged_non_flat_topic_id_values = [(x, question_id_to_topic_id_dict[x]) for x in flat_question_id_values]
-      tagged_question_key_list = [(x, getQuestionKey(x, question_id_to_topic_id_dict, topic_id_to_point_dict, location)) for x in unique_question_id_values]
-      """
-      """
-      for tagged_question_key in tagged_question_key_list:
-        question_id_value, question_key = tagged_question_key
-        print question_key
-      """
-      """
-      # print tagged_question_key_list
-      sorted_tagged_question_key_list = sorted(tagged_question_key_list, cmp = lambda x, y: compare_items(x[1], y[1]))
-      sorted_question_id_list = [x[0] for x in sorted_tagged_question_key_list]
-      """
-      # unique_id_values = flat_id_values
-      unique_id_values = flat_question_id_values
-      # print unique_id_values
-      tagged_question_key_list = [(x, getQuestionKey(x, question_id_to_topic_id_dict, topic_id_to_point_dict, location)) for x in unique_id_values]
-      # print tagged_question_key_list
-      sorted_tagged_question_key_list = sorted(tagged_question_key_list, cmp = lambda x, y: compare_items(x[1], y[1]))
-      sorted_question_id_list = [x[0] for x in sorted_tagged_question_key_list]
-      # print sorted_question_id_list
-      culled_sorted_question_id_list = sorted_question_id_list[ : num_items]
-      """
-      for question_id in culled_sorted_question_id_list:
-        distance = getQuestionDistance(question_id, question_id_to_topic_id_dict, topic_id_to_point_dict, location)
-        print distance
-      """
-      culled_sorted_question_id_str_list = [str(x) for x in culled_sorted_question_id_list]
-      print string.join(culled_sorted_question_id_str_list, " ")
-      # print question_id_tagged_non_flat_topic_id_values
-      # print flat_question_id_values
-    # print points
-  # print tree.toString()
-  # print MBR.findOverlapArea(MBR((0, 0), (1, 1)), MBR((0.5, 0.5), (1, 1)))
-  # topic_tree.draw()
-  """
-  for topic in topics:
-    id_value, x, y = topic
-  locations = [(x[1], x[2]) for x in topics]
-  x_values = [x[0] for x in locations]
-  y_values = [x[1] for x in locations]
-  min_x_value = min(x_values)
-  max_x_value = max(x_values)
-  min_y_value = min(y_values)
-  max_y_value = max(y_values)
-  print min_x_value, max_x_value
-  print min_y_value, max_y_value
-  """
-  """
-  # deal with lowest composite MBRs
-  m = 8
-  M = 16
-  r = len(topics)
-  import math
-  P = int(math.ceil(r / M))
-  S = int(math.ceil(math.sqrt(P)))
-  num_slices = S
-  max_nodes_per_slice = S * M
-  """
-  # print P, S, max_nodes_per_slice
-  # print tree.toDepthString()
-  # print tree.toLeafStatusString()
-  # print tree.toEntriesArePresentString()
-  # print tree.toNumChildrenString()
-  # raise Exception()
+  tree2 = RTree.construct(points)
+  print tree2.toString()
+
+  entries = [x.getParent().retrieveEntryForChild(x) for x in tree2.getNodes() if x.getParent() != None and x.getParent().retrieveEntryForChild(x).getMBR().isRaw() == True]
+  for entry in entries:
+    tree2.delete(entry)
+  print tree2.toString()
+
 if __name__ == "__main__":
   main()

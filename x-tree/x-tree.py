@@ -8,7 +8,22 @@
 
 # updated on 2016-08-23 to fix traditional/non-traditional isLeafNode() distinction
 
-# updated on 2016-08-25 to fix overlap logic for determining when to attempt an overlap-minimal split 
+# updated on 2016-08-25 to fix overlap logic for determining when to attempt an overlap-minimal split
+
+# updated on 2016-11-03 to re-structure and modify adjustTree(); 
+#   stop at root instead of non-existent parent of root; 
+#   also, we implement delete(); note that our tree 
+#   has entry-aware nodes; made bug fix for adjustTree();
+#   fixed bug with parent pointers for xtreeInsert(); 
+#   have supernode demotion when size decreases to or below M
+
+# note that we don't necessarily need PythonMagick
+
+# note that nodes always point to same entries 
+#   unless we explicitly create new entries, 
+#   which we do do occasionally
+
+# note that M of two works
 
 import sys
 import PythonMagick
@@ -62,8 +77,8 @@ class RTreeNode:
     self.entry = entry
   def isSuperNode(self):
     return self.is_supernode
-  def setToSuperNode(self):
-    self.is_supernode = True
+  def setToSuperNode(self, is_supernode):
+    self.is_supernode = is_supernode
   def getSplitHistoryRootDimension(self):
     return self.split_history_root_dimension
   def setSplitHistoryRootDimension(self, dim):
@@ -289,7 +304,7 @@ class MBR:
   def toString(self):
     upper_left = self.getUpperLeft()
     lower_right = self.getLowerRight()
-    result = str(list(upper_left + lower_right))
+    result = str(list(upper_left + lower_right) + [self.isRaw()])
     return result
   def getDimension(self):
     return len(self.getUpperLeft())
@@ -517,8 +532,10 @@ class RTree:
     overall_str_list = None
     if is_root_node == False:
       overall_str_list = [node.getEntry().getMBR().toString()]
+      # overall_str_list = [node.getEntry().getMBR().toString(), str(node)]
     else:
       overall_str_list = [] if node.getNumChildren() == 0 else [node.getEntry().getMBR().toString()]
+      # overall_str_list = [] if node.getNumChildren() == 0 else [node.getEntry().getMBR().toString(), str(node)]
     for entry in entries:
       child = entry.getChild()
       child_str = self.toStringHelper(child)
@@ -696,6 +713,7 @@ class RTree:
       chosen_child = chosen_entry.getChild()
       return chosen_entry
   def xtreeInsert(self, entry):
+    # print "insert"
     return self.xtreeInsertHelper(entry, self.getRootEntry().getChild())
   SPLIT = 0
   SUPERNODE = 1
@@ -704,33 +722,53 @@ class RTree:
     split_status = None
     next_mbr = None
     if True:
-      if node.getNumChildren() == 0 and node == self.getRootEntry().getChild():
+      # if node.getNumChildren() == 0 and node == self.getRootEntry().getChild():
+      # if node.getNumChildren() == 0:
+      # if node.isNonTraditionalLeafNode() == True:
+      if node.isLeafNode() == True and node == self.getRootEntry().getChild():
         node.addEntry(entry)
         curr_node = entry.getChild()
         curr_node.setParent(node)
         mbr = CompositeMBR.makeMBR([entry.getMBR()])
         node.getEntry().setMBR(mbr)
-        return (RTree.NO_SPLIT, node)
-      elif node.getNumChildren() == 0:
-        pass
-        return (RTree.SPLIT, node)
+        # print "no split"
+        return (RTree.NO_SPLIT, [node])
+      if node.isLeafNode() == True:
+        # split just in case
+        # print "split"
+        return (RTree.SPLIT, [node])
       elif node.isNonTraditionalLeafNode() == True:
         node.addEntry(entry)
+        entry.getChild().setParent(node)
+      """
+      elif node.getNumChildren() == 0:
+        pass
+        return (RTree.NO_SPLIT, [node])
+      """
       follow = self.chooseSubtree(entry, node).getChild()
       result = self.xtreeInsertHelper(entry, follow)
-      split_status, added_node = result
+      split_status, added_nodes = result
       curr_entry = node.getEntry()
       curr_mbr = curr_entry.getMBR()
       mbr = entry.getMBR()
       next_mbr = MBR.getEnlargedMBR(curr_mbr, mbr)
       node.getEntry().setMBR(next_mbr)
+      # this parent-setting step is crucial
+      # if node.isNonTraditionalLeafNode() == False:
+      # this is idempotent
+      for added_node in added_nodes:
+        node.addEntry(added_node.getEntry())
+        added_node.setParent(node)
     if split_status == RTree.SPLIT:
+      # added_node.setParent(node)
       if node.getNumChildren() > node.getMaximumNumEntriesPerNode():
         split_result = self.xtreeSplitNode(node, entry)
         was_successful, entry_collection1, entry_collection2, dimension = split_result
         if was_successful == True:
           mbr_collection1 = [x.getMBR() for x in entry_collection1]
           mbr_collection2 = [x.getMBR() for x in entry_collection2]
+          # this line presumes that we have parent set correctly for a leaf, 
+          # which is not the case when we initially insert
           parent = node.getParent()
           entry1 = RTreeEntry(CompositeMBR.makeMBR(mbr_collection1), None)
           node1 = RTreeNode(parent, entry_collection1, None, entry1)
@@ -750,18 +788,21 @@ class RTree:
             next_root_entry.setChild(next_root)
             self.setRootEntry(next_root_entry)
             node1.setParent(next_root)
-            node2.setParent(next_root)            
+            node2.setParent(next_root)
           else:
             parent.removeEntry(node.getEntry())
             parent.addEntry(entry1)
             parent.addEntry(entry2)
-          return (RTree.SPLIT, node2)
+          # print "split #2"
+          return (RTree.SPLIT, [node1, node2])
         else:
-          self.xtreeSupernodeInsert(node, entry)
-          return (RTree.SUPERNODE, None)
+          self.xtreeSupernodeInsert(node, [x.getEntry() for x in added_nodes])
+          # print "supernode #1"
+          return (RTree.SUPERNODE, [node])
     elif split_status == RTree.SUPERNODE:
       pass
-    return (RTree.NO_SPLIT, None)
+    # print "no split"
+    return (RTree.NO_SPLIT, [node])
   def rstarInsert(self, entry):
     leaf_node = self.rstarChooseLeaf(entry)
     adjust_result = None
@@ -795,6 +836,7 @@ class RTree:
   def xtreeSplitNode(self, node, entry):
     # we never split a super-node
     if node.isSuperNode() == True:
+      # raise Exception()
       return (False, None, None, None)
     dimension = None
     result1 = self.xtreeTopologicalSplit(node, entry)
@@ -815,10 +857,12 @@ class RTree:
         overlap_ratio = 0
     else:
       overlap_ratio = overlap_area / (1.0 * union_area)
+    # raise Exception()
     if overlap_ratio >= RTree.MAX_OVERLAP_RATIO:
       # raise Exception()
       result2 = self.xtreeOverlapMinimalSplit(node, entry)
       entry_collection3, entry_collection4, dimension, do_fail = result2
+      # raise Exception()
       if do_fail == True or len(entry_collection3) < node.getMinimumNumEntriesPerNode() or len(entry_collection4) < node.getMinimumNumEntriesPerNode():
         return (False, None, None, dimension)
       else:
@@ -846,14 +890,20 @@ class RTree:
       entry_group1, entry_group2 = result
       next_result = (entry_group1, entry_group2, axis, False)
       return next_result
-  def xtreeSupernodeInsert(self, node, entry):
+  def xtreeSupernodeInsert(self, node, entries):
     if node.isSuperNode() == False:
-      node.setToSuperNode()
-    curr_node = entry.getChild()
-    node.addEntry(entry)
+      node.setToSuperNode(True)
+    # questionable if this is really necessary
+    for entry in entries:
+      curr_node = entry.getChild()
+      node.addEntry(entry)
+      # needed this
+      curr_node.setParent(node)
+    """
     entries = node.getEntries()
     mbr_list = [x.getMBR() for x in entries]
     tight_overall_mbr = CompositeMBR.makeMBR(mbr_list)
+    """
   def rstarSplitNode(self, node, entry):
     curr_node = node
     E_overall = list(set(curr_node.getEntries() + [entry]))
@@ -868,8 +918,10 @@ class RTree:
     result = RTree.rstarChooseSplitIndex(E_overall, axis, M, m)
     entry_group1, entry_group2 = result
     parent = curr_node.getParent()
+    """
     if parent != None and (node in parent.getChildren()):
       pass
+    """
     node1 = RTreeNode(parent, entry_group1, prev_leaf_status)
     node2 = RTreeNode(parent, entry_group2, prev_leaf_status)
     for curr_entry in entry_group1:
@@ -927,16 +979,27 @@ class RTree:
   @staticmethod
   def rstarAdjustTreeHelper(tree, node, resulting_entries_from_split, 
 have_resulting_second_entry_from_split):
-    if node == None:
+    if node.getParent() == None:
+
+      entry = tree.getRootEntry()
+      curr_entries = entry.getChild().getEntries()
+      children = [x.getChild() for x in curr_entries]
+      mbr_list = [x.getMBR() for x in curr_entries]
+      tight_overall_mbr = CompositeMBR.makeMBR(mbr_list)
+      entry.setMBR(tight_overall_mbr)
+
       return (have_resulting_second_entry_from_split, resulting_entries_from_split)
     else:
-      parent = node
+      parent = node.getParent()
       curr_entries = node.getEntries()
       entry = None
+      """
       if node.getParent() == None:
         entry = tree.getRootEntry()
       else:
         entry = node.getParent().retrieveEntryForChild(node)
+      """
+      entry = parent.retrieveEntryForChild(node)
       children = [x.getChild() for x in curr_entries]
       mbr_list = [x.getMBR() for x in curr_entries]
       tight_overall_mbr = CompositeMBR.makeMBR(mbr_list)
@@ -957,16 +1020,17 @@ have_resulting_second_entry_from_split):
           if (parent.getNumChildren() + 1) <= parent.getMaximumNumEntriesPerNode():
             parent.addEntry(partner_entry)
             partner_entry.getChild().setParent(parent)
-            return tree.rstarAdjustTreeHelper(tree, node.getParent(), [entry], False)
+            return RTree.rstarAdjustTreeHelper(tree, node.getParent(), [entry], False)
           else:
             split_result = tree.rstarSplitNode(parent, partner_entry)
             l, ll, e, ee = split_result
-            return tree.rstarAdjustTreeHelper(tree, l.getParent(), [e, ee], True)
+            return RTree.rstarAdjustTreeHelper(tree, node.getParent(), [e, ee], True)
         else:
-          return tree.rstarAdjustTree(tree, node.getParent(), [entry], False)
+          return RTree.rstarAdjustTreeHelper(tree, node.getParent(), [entry], False)
       else:
-        return tree.rstarAdjustTree(tree, node.getParent(), resulting_entries_from_split, 
+        return RTree.rstarAdjustTreeHelper(tree, node.getParent(), resulting_entries_from_split, 
 have_resulting_second_entry_from_split)
+  """
   @staticmethod
   def adjustTree(tree, node, resulting_entries_from_split, have_resulting_second_entry_from_split, is_first_call_after_first_pass):
     if node == None:
@@ -1010,9 +1074,15 @@ have_resulting_second_entry_from_split)
           return tree.adjustTree(tree, l, [e, ee], True, False)
       else:
         return (False, [])
+  """
+  # assume item is in tree
+  # returns a node, which can be None if no match is found
+  # finds one match if such a node exists
+  # def delete(self, E, RN):
   def findLeaf(self, entry):
-    return self.findLeafHelper(entry, self.getRootEntry().getChild())
-  def findLeafHelper(self, entry, node):
+    return self.findLeafHelper(entry, self.getRootEntry())
+  def findLeafHelper(self, entry, curr_entry):
+    """
     if node.isLeafNode() == False:
       curr_mbr = entry.getMBR()
       entries = self.getEntries()
@@ -1027,6 +1097,153 @@ have_resulting_second_entry_from_split)
         else:
           return curr_node
       return None
+    """
+    # a little stilted since we don't need a O(log(n)) time operation 
+    # to find the entry containing node; just look at parent of entry child
+    if curr_entry.getMBR().isRaw() == True:
+      if entry == curr_entry:
+        return True
+      else:
+        return False
+    else:
+      entries = curr_entry.getChild().getEntries()
+      for next_entry in entries:
+        if MBR.doOverlap(curr_entry.getMBR(), entry.getMBR()) == True:
+          result = self.findLeafHelper(entry, next_entry)
+          if result == True:
+            return result
+      return False
+  def delete(self, entry):
+    # print "hello"
+    did_find_leaf = self.findLeaf(entry)
+    child_node = entry.getChild()
+    # root node never has a raw mbr
+    # leaf is a non-traditional leaf
+    leaf_node = child_node.getParent() if entry != self.getRootEntry() else None
+    if leaf_node == None:
+      raise Exception("expected a node to be found for a delete")
+    # if parent has zero entries after removing this entry, this should be okay
+    leaf_node.removeEntry(entry)
+    self.condenseTree(leaf_node)
+    # root = self.getRootEntry().getChild()
+    """
+    if root.getNumChildren() == 1:
+      # shorten tree
+      entries = root.getEntries()
+      chosen_entry = entries[0]
+      chosen_child = chosen_entry.getChild()
+      self.setRoot(chosen_child)
+    """
+    # if RN is a leaf node
+      # search all entries of RN to find E.mbr
+    # else:
+      # RN is an internal node
+      # find all entries of RN that cover E.mbr
+      # follow the corresponding subtrees unti lthe leaf L that contains E is found
+      # remove E from L
+    # call algorithm condenseTree(L)
+    # if the root has only one child (and it is not a leaf)
+      # remove the root
+      # set as new root its only child
+    pass
+  def condenseTree(self, leaf_node):
+    Q = []
+    self.condenseTreeHelper(leaf_node, Q)
+    # Q is in order of low-level to high-level; 
+    # wish to insert using order of high-level to low-level
+    # Q = list(set(Q))
+    Q.reverse()
+    for curr_node in Q:
+      curr_entry = curr_node.getEntry()
+      # print "mbr:", curr_entry.getMBR().toString()
+      # print "tree:", self.toString()
+      self.insert(curr_entry)
+  def condenseTreeHelper(self, node, Q):
+    # demote super-node if necessary
+    if node.isSuperNode() == True and node.getNumChildren() <= node.getMaximumNumEntriesPerNode():
+      node.setToSuperNode(False)
+    if node.getParent() == None:
+      # we are a root node
+      if self.getRootEntry().getChild().getNumChildren() == 0:
+        root_node = RTreeNode(None, [], True)
+        root_mbr = CompositeMBR(None, None, None)
+        root_entry = RTreeEntry(root_mbr, root_node)
+        root_node.setEntry(root_entry)
+        self.setRootEntry(root_entry)
+        return
+      else:
+        entry = self.getRootEntry()
+        curr_entries = entry.getChild().getEntries()
+        children = [x.getChild() for x in curr_entries]
+        mbr_list = [x.getMBR() for x in curr_entries]
+        tight_overall_mbr = CompositeMBR.makeMBR(mbr_list)
+        entry.setMBR(tight_overall_mbr)
+        return
+    else:
+      # raise Exception()
+      # print "decision point"
+      """
+      if node.isSuperNode() == True:
+        # print "supernode encountered"
+        parent = node.getParent()
+        parent.removeEntry(parent.retrieveEntryForChild(node))
+        Q.append(node)
+        # raise Exception()
+        if node.getNumChildren() <= 1:
+          # raise Exception()
+          node.setToSuperNode(False)
+        elif node.getNumChildren() <= node.getMaximumNumEntriesPerNode():
+          mbr_list = [x.getMBR() in node.getEntries()]
+          curr_x_tree = RTree()
+          overlap_area_sum = sum([x.getArea() for x in mbr_list])
+          for curr_mbr in mbr_list:
+            next_mbr = RawMBR(curr_mbr.getUpperLeft(), curr_mbr.getLowerRight(), None)
+            next_node = RTreeNode(None, [], True)
+            next_entry = RTreeEntry(next_mbr, next_node)
+            next_node.setEntry(next_entry)
+            curr_x_tree.insert(next_entry)
+          union_area = curr_x_tree.getUnionArea()
+          multi_overlap_ratio = overlap_area_sum / (1.0 * union_area)
+          if multi_overlap_ratio <= RTree.MAX_OVERLAP_RATIO:
+            node.setToSuperNode(False)
+      elif node.isUnderfull() == True:
+      """
+      if node.isUnderfull() == True:
+        # print "underfull"
+        parent = node.getParent()
+        parent.removeEntry(parent.retrieveEntryForChild(node))
+        # don't use isLeafNode() for this, as internal nodes can temporarily look like leaf nodes
+        # keep_nodes = [x for x in self.getNodesForNode(node) if x.getEntry().getMBR().isRaw() == True]
+        keep_nodes = [x for x in self.getNodesForNode(node) if x.getEntry().getMBR().isRaw() == True]
+        for keep_node in keep_nodes:
+          Q.append(keep_node)
+      # only makes sense to speak of modifying mbr if we plan on keeping the node
+      if node.isUnderfull() == False:
+        # print "not underfull"
+        parent = node.getParent()
+        curr_entries = node.getEntries()
+        entry = parent.retrieveEntryForChild(node)
+        children = [x.getChild() for x in curr_entries]
+        mbr_list = [x.getMBR() for x in curr_entries]
+        tight_overall_mbr = CompositeMBR.makeMBR(mbr_list)
+        entry.setMBR(tight_overall_mbr)
+      self.condenseTreeHelper(node.getParent(), Q)
+      return
+  # not tested
+  # returns mbr's, which enclosure and containment queries don't return
+  def doOverlapQuery(self, mbr):
+    partial_result = []
+    self.doOverlapQueryHelper(mbr, self.getRootEntry(), partial_result)
+    return partial_result
+  def doOverlapQueryHelper(self, mbr, entry, partial_result):
+    if entry.getMBR().isRaw() == True:
+      if MBR.doOverlap(entry.getMBR(), mbr) == True:
+        partial_result.append(entry.getMBR())
+    else:
+      entries = entry.getChild().getEntries()
+      for curr_entry in entries:
+        if MBR.doOverlap(curr_entry.getMBR(), mbr) == True:
+          self.doOverlapQueryHelper(mbr, curr_entry, partial_result)
   def doEnclosureQuery(self, mbr):
     partial_result = []
     self.doEnclosureQueryHelper(mbr, self.getRootEntry(), partial_result)
@@ -1053,7 +1270,25 @@ have_resulting_second_entry_from_split)
       for curr_entry in entries:
         if MBR.doOverlap(curr_entry.getMBR(), mbr) == True:
           self.doContainmentQueryHelper(mbr, curr_entry, partial_result)
+  # prefix order
+  def getNodes(self):
+    node_list = []
+    self.getNodesHelper(self.getRootEntry().getChild(), node_list)
+    return node_list
+  def getNodesHelper(self, node, partial_result):
+    partial_result.append(node)
+    for curr_node in node.getChildren():
+      self.getNodesHelper(curr_node, partial_result)
+  def getNodesForNode(self, node):
+    node_list = []
+    self.getNodesHelper(node, node_list)
+    return node_list
+  """
+  def getUnionArea(self):
+    pass
+  """
 def main():
+
   point1 = (30, 100, 0)
   point2 = (40, 100, 0)
   point3 = (50, 100, 0)
@@ -1068,49 +1303,174 @@ def main():
   tree = RTree()
   print tree.toString()
   curr_root = tree.getRootEntry().getChild()
-  mbr1 = RawMBR(point1, point1, point1)
+  mbr1 = RawMBR(point1, (110, 200, 100), point1)
   node1 = RTreeNode(None, [], True)
   entry1 = RTreeEntry(mbr1, node1)
   node1.setEntry(entry1)
   tree.insert(entry1)
-  mbr2 = RawMBR(point2, point2, point2)
+  mbr2 = RawMBR(point2, (110, 200, 100), point2)
   node2 = RTreeNode(None, [], True)
   entry2 = RTreeEntry(mbr2, node2)
   node2.setEntry(entry2)
   tree.insert(entry2)
-  mbr3 = RawMBR(point3, point3, point3)
+  mbr3 = RawMBR(point3, (110, 200, 100), point3)
   node3 = RTreeNode(None, [], True)
   entry3 = RTreeEntry(mbr3, node3)
   node3.setEntry(entry3)
   tree.insert(entry3)
-  mbr4 = RawMBR(point4, point4, point4)
+  mbr4 = RawMBR(point4, (110, 200, 100), point4)
   node4 = RTreeNode(None, [], True)
   entry4 = RTreeEntry(mbr4, node4)
   node4.setEntry(entry4)
   tree.insert(entry4)
-  mbr5 = RawMBR(point5, point5, point5)
+  mbr5 = RawMBR(point5, (110, 200, 100), point5)
   node5 = RTreeNode(None, [], True)
   entry5 = RTreeEntry(mbr5, node5)
   node5.setEntry(entry5)
   tree.insert(entry5)
-  mbr6 = RawMBR(point6, point6, point6)
+  mbr6 = RawMBR(point6, (110, 200, 100), point6)
   node6 = RTreeNode(None, [], True)
   entry6 = RTreeEntry(mbr6, node6)
   node6.setEntry(entry6)
   tree.insert(entry6)
-  mbr7 = RawMBR(point7, point7, point7)
+  mbr7 = RawMBR(point7, (110, 200, 100), point7)
   node7 = RTreeNode(None, [], True)
   entry7 = RTreeEntry(mbr7, node7)
   node7.setEntry(entry7)
   tree.insert(entry7)
-  mbr8 = RawMBR(point8, point8, point8)
+  mbr8 = RawMBR(point8, (110, 200, 100), point8)
   node8 = RTreeNode(None, [], True)
   entry8 = RTreeEntry(mbr8, node8)
   node8.setEntry(entry8)
+  # problem here
   tree.insert(entry8)
   print tree.toString()
   print tree.doEnclosureQuery(curr_mbr2)
   print tree.doContainmentQuery(curr_mbr2)
   print tree.doContainmentQuery(curr_mbr2b)
+
+  print tree.toString()
+  # tree.delete(entry1)
+  print tree.toString()
+  # tree.delete(entry8)
+  # tree.insert(entry1)
+
+  tree.delete(entry1)
+  tree.delete(entry2)
+  tree.delete(entry3)
+  tree.delete(entry4)
+  tree.delete(entry5)
+  tree.delete(entry6)
+  tree.delete(entry7)
+  tree.delete(entry8)
+  print tree.toString()
+
+  tree = RTree()
+  import random
+  entries = []
+  # lower_rights = [(3, 10, 10), (1, 10, 10), (8, 10, 10), (6, 10, 10), (9, 10, 10), (6, 10, 10), (9, 10, 10), (3, 10, 10), (1, 10, 10), (3, 10, 10)]
+  # for i in xrange(10):
+  # for i in xrange(4):
+  """
+  ul_lr_pairs = [((797, 989, 602), (910, 1248, 1035)), \
+((920, 974, 724), (1802, 1524, 1378)), \
+((911, 953, 196), (1776, 1662, 455)), \
+((596, 892, 131), (1543, 1838, 669)), \
+((879, 319, 789), (1877, 744, 791)), \
+((1081, 1056, 1020), (1708, 1075, 1542)), \
+((358, 815, 372), (761, 1089, 594)), \
+((294, 238, 1036), (785, 378, 1963)), \
+((803, 1054, 307), (1776, 1597, 501)), \
+((803, 233, 521), (1314, 717, 1487)), \
+((660, 268, 962), (1293, 619, 1521)), \
+((798, 928, 1028), (1762, 1795, 1309)), \
+((225, 359, 290), (579, 950, 700)), \
+((297, 196, 750), (1085, 718, 1259)), \
+((808, 926, 151), (889, 1755, 320)), \
+((945, 260, 1091), (1932, 332, 1133)), \
+((262, 221, 872), (500, 279, 1521)), \
+((332, 886, 493), (822, 1305, 1149)), \
+((800, 709, 871), (1390, 1402, 1548)), \
+((433, 499, 483), (1300, 1330, 1055))]
+  """
+  for i in xrange(10):
+    upper_left = None
+    lower_right = None
+    """
+    if i % 4 == 0:
+      upper_left = (0, 0)
+      lower_right = (10, 10)
+    elif i % 4 == 1:
+      upper_left = (20, 20)
+      lower_right = (40, 40)
+    elif i % 4 == 2:
+      upper_left = (60, 60)
+      lower_right = (80, 80)
+    elif i % 4 == 3:
+      upper_left = (100, 100)
+      lower_right = (120, 120)
+    """
+    x1 = int(100 + random.random() * 1000)
+    y1 = int(100 + random.random() * 1000)
+    z1 = int(100 + random.random() * 1000)
+
+    x2 = int(x1 + random.random() * 1000)
+    y2 = int(y1 + random.random() * 1000)
+    z2 = int(z1 + random.random() * 1000)
+
+    upper_left = (x1, y1, z1)
+    lower_right = (x2, y2, z2)
+    # upper_left = ul_lr_pairs[i][0]
+    # lower_right = ul_lr_pairs[i][1]
+    # x = int(random.randint(1, 100))
+    # y = 10
+    # z = 10
+    # lower_right = (x, y, z)
+    # lower_right = lower_rights[i]
+    mbr = RawMBR(upper_left, lower_right, None)
+    node = RTreeNode(None, [], True)
+    entry = RTreeEntry(mbr, node)
+    node.setEntry(entry)
+    entries.append(entry)
+  """
+  for i in xrange(10):
+    upper_left = (20, 20)
+    lower_right = (40, 40)
+    mbr = RawMBR(upper_left, lower_right, None)
+    node = RTreeNode(None, [], True)
+    entry = RTreeEntry(mbr, node)
+    node.setEntry(entry)
+    entries.append(entry)
+  for i in xrange(1000):
+    upper_left = (0, 0)
+    lower_right = (10, 10)
+    mbr = RawMBR(upper_left, lower_right, None)
+    node = RTreeNode(None, [], True)
+    entry = RTreeEntry(mbr, node)
+    node.setEntry(entry)
+    # entries.append(entry)
+  """
+  # for entry in entries[0 : 4]:
+  # for entry in entries[0 : 15]:
+  for entry in entries:
+    tree.insert(entry)
+    """
+    if entry.getChild().getParent() == None:
+      raise Exception()
+    """
+  # print tree.toString()
+  # for entry in entries[0 : 4]:
+  # print "supernodes:", [x for x in tree.getNodes() if x.isSuperNode() == True], tree.getRootEntry().getChild()
+  print len(tree.getNodes())
+  # for entry in entries[0 : 15]:
+  for entry in entries:
+    # if len(tree.getNodes()) != 0:
+    # print "removing entry with mbr:", entry.getMBR().toString()
+    # print "tree, currently:", tree.toString()
+    tree.delete(entry)
+    pass
+    
+  # print tree.toString()
+
 if __name__ == "__main__":
   main()
