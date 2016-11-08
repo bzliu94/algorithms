@@ -17,6 +17,23 @@
 #   fixed bug with parent pointers for xtreeInsert(); 
 #   have supernode demotion when size decreases to or below M
 
+# updated on 2016-11-06 to add single-start-rectangle-based 
+#   close-descendant finding that takes O(log(n)) time on average 
+#   for start rectangle taken from set of actual rectangles 
+#   for an r-tree and O(n * log(n)) time at worst; 
+#   and to add all-start-rectangles close-ancestor finding, 
+#   which for a well-formed r-tree, takes O(n * log(n)) time; 
+#   these times involve n, which is number of actual rectangles 
+#   or leaves in r-tree; these times assume "maximal disjointedness" 
+#   and depth-first stack for internal nodes and 
+#   best-first priority queue for leaf nodes
+
+# note that we assume rectangles are unique for close-descendant 
+#   and close-ancestor finding; the assumption is necessary 
+#   to make strong running time estimates; the reason is that 
+#   otherwise the directed graph implied by the r-tree 
+#   is not acyclic and we have cliques
+
 # note that we don't necessarily need PythonMagick
 
 # note that nodes always point to same entries 
@@ -28,6 +45,8 @@
 import sys
 import PythonMagick
 import heapq
+from collections import deque
+# min-pq
 class PriorityQueue:
     def  __init__(self):
         self.heap = []
@@ -344,6 +363,17 @@ class RawMBR(MBR):
     return self.contained_item
   def getMBRList(self):
     return [self]
+  def clone(self):
+    upper_left = self.getUpperLeft()
+    lower_right = self.getLowerRight()
+    contained_item = self.getContainedItem()
+    mbr = RawMBR(upper_left, lower_right, contained_item)
+    return mbr
+  def doesMatch(self, mbr):
+    upper_left_matches = self.getUpperLeft() == mbr.getUpperLeft()
+    lower_right_matches = self.getLowerRight() == mbr.getLowerRight()
+    result = upper_left_matches == True and lower_right_matches == True
+    return result
 class CompositeMBR(MBR):
   def __init__(self, upper_left, lower_right, mbr_list):
     MBR.__init__(self, upper_left, lower_right)
@@ -1230,7 +1260,7 @@ have_resulting_second_entry_from_split)
       self.condenseTreeHelper(node.getParent(), Q)
       return
   # not tested
-  # returns mbr's, which enclosure and containment queries don't return
+  # returns entries
   def doOverlapQuery(self, mbr):
     partial_result = []
     self.doOverlapQueryHelper(mbr, self.getRootEntry(), partial_result)
@@ -1238,12 +1268,13 @@ have_resulting_second_entry_from_split)
   def doOverlapQueryHelper(self, mbr, entry, partial_result):
     if entry.getMBR().isRaw() == True:
       if MBR.doOverlap(entry.getMBR(), mbr) == True:
-        partial_result.append(entry.getMBR())
+        partial_result.append(entry)
     else:
       entries = entry.getChild().getEntries()
       for curr_entry in entries:
         if MBR.doOverlap(curr_entry.getMBR(), mbr) == True:
           self.doOverlapQueryHelper(mbr, curr_entry, partial_result)
+  # returns entries
   def doEnclosureQuery(self, mbr):
     partial_result = []
     self.doEnclosureQueryHelper(mbr, self.getRootEntry(), partial_result)
@@ -1251,12 +1282,28 @@ have_resulting_second_entry_from_split)
   def doEnclosureQueryHelper(self, mbr, entry, partial_result):
     if entry.getMBR().isRaw() == True:
       if entry.getMBR().doesEnclose(mbr) == True:
-        partial_result.append(entry.getMBR().getContainedItem())
+        partial_result.append(entry)
     else:
       entries = entry.getChild().getEntries()
       for curr_entry in entries:
         if curr_entry.getMBR().doesEnclose(mbr) == True:
           self.doEnclosureQueryHelper(mbr, curr_entry, partial_result)
+  def doEnclosureQueryWithEarlyStopping(self, mbr):
+    result = self.doEnclosureQueryWithEarlyStoppingHelper(mbr, self.getRootEntry())
+    return result
+  def doEnclosureQueryWithEarlyStoppingHelper(self, mbr, entry):
+    if entry.getMBR().isRaw() == True:
+      if entry.getMBR().doesEnclose(mbr) == True:
+        return True
+    else:
+      entries = entry.getChild().getEntries()
+      for curr_entry in entries:
+        if curr_entry.getMBR().doesEnclose(mbr) == True:
+          result = self.doEnclosureQueryWithEarlyStoppingHelper(mbr, curr_entry)
+          if result == True:
+            return True
+    return False
+  # returns entries
   def doContainmentQuery(self, mbr):
     partial_result = []
     self.doContainmentQueryHelper(mbr, self.getRootEntry(), partial_result)
@@ -1264,7 +1311,7 @@ have_resulting_second_entry_from_split)
   def doContainmentQueryHelper(self, mbr, entry, partial_result):
     if entry.getMBR().isRaw() == True:
       if mbr.doesEnclose(entry.getMBR()) == True:
-        partial_result.append(entry.getMBR().getContainedItem())
+        partial_result.append(entry)
     else:
       entries = entry.getChild().getEntries()
       for curr_entry in entries:
@@ -1287,6 +1334,126 @@ have_resulting_second_entry_from_split)
   def getUnionArea(self):
     pass
   """
+  # takes O(log(n)) time on average for start rectangle 
+  # taken from set of actual rectangles for an r-tree; 
+  # takes O(n * log(n)) time at worst; 
+  # assumes that rectangles are distinct
+  # return a list of entries
+  def getRectangleCloseDescendants(self, reference_entry):
+    # repeatedly pop nodes, prune using enclosure/containment 
+    # w.r.t. reference rectangle, add children to priority queue, 
+    # ignore if contained rectangle is contained by a rectangle in conflict x-tree, 
+    # add actual rectangles to conflict x-tree, 
+    # use as priority (prefer_contained, prefer_large_area_if_contained_else_small)
+    if self.getRootEntry().getChild().getNumChildren() == 0:
+      return []
+    reference_mbr = reference_entry.getMBR()
+    root_entry = self.getRootEntry()
+    root_node = root_entry.getChild()
+    root_mbr = root_entry.getMBR()
+    root_mbr_is_actual = root_mbr.isRaw()
+    root_mbr_is_contained = reference_mbr.doesEnclose(root_mbr)
+    root_mbr_area = root_mbr.getArea()
+    # first_priority_component = 0 if root_mbr_is_contained == True else 1
+    # second_priority_component = (-1 if root_mbr_is_contained == True else 1) * root_mbr_area
+    # min-pq
+    # priority = (first_priority_component, second_priority_component)
+    priority = -1 * root_mbr_area
+    # entry_pq = PriorityQueue()
+    heap = []
+    # entry_pq.push(root_entry, priority)
+    item = root_entry
+    pair = (priority,item)
+    heapq.heappush(heap,pair)
+    # print entry_pq
+    # raise Exception()
+    result_entry_list = []
+    self.getRectangleCloseDescendantsHelper(heap, reference_mbr, result_entry_list, reference_entry)
+    return result_entry_list
+  # def TopicKNearestNeighborBestFirstSearchHelper(self, heap, point, TopicKNearest, k):
+  def getRectangleCloseDescendantsHelper(self, heap, reference_mbr, result_entry_list, ignore_entry):
+    conflict_x_tree = RTree()
+    internal_node_stack_deque = deque()
+    # while entry_pq.getSize() != 0:
+    while len(internal_node_stack_deque) != 0 or len(heap) != 0:
+      # entry = entry_pq.pop()
+      item = None
+      if len(heap) != 0:
+        (priority,item) = heapq.heappop(heap)
+      elif len(internal_node_stack_deque) != 0:
+        item = internal_node_stack_deque.popleft()
+      entry = item
+      node = entry.getChild()
+      mbr = entry.getMBR()
+      if mbr.doesEnclose(reference_mbr) == False and reference_mbr.doesEnclose(mbr) == False:
+        # ignore node if associated mbr does not enclose reference mbr 
+        # and associated mbr is not contained within reference mbr
+        continue
+      if conflict_x_tree.doEnclosureQueryWithEarlyStopping(mbr) == True:
+        # ignore node if enclosing mbr exists in conflict x-tree
+        continue
+      if entry == ignore_entry:
+        # ignore node if its entry matches the ignore entry
+        continue
+      if node.isLeafNode() == True:
+        # could have a safe path to a leaf where the leaf mbr 
+        # is not contained by reference rectangle; 
+        # check explicitly for this case
+        if reference_mbr.doesEnclose(mbr) == False:
+          continue
+        # kick out close descendant candidates on occasion, 
+        # if containment query for conflict x-tree returns entries
+        matching_entries = conflict_x_tree.doContainmentQuery(mbr)
+        for matching_entry in matching_entries:
+          # raise Exception()
+          conflict_x_tree.delete(matching_entry)
+        # if node is a leaf node, it has an actual rectangle
+        # decide whether to include associated entry in result; 
+        # if we made it this far, we should add to conflict x-tree
+        result_entry_list.append(entry)
+        raw_mbr = mbr
+        next_mbr = raw_mbr.clone()
+        next_node = RTreeNode(None, [], True)
+        next_entry = RTreeEntry(next_mbr, next_node)
+        next_node.setEntry(next_entry)
+        conflict_x_tree.insert(next_entry)
+      elif node.isLeafNode() == False:
+        # if we made it this far, we should add children to priority queue
+        entries = node.getEntries()
+        for curr_entry in entries:
+          # set priority correctly and add to priority queue
+          curr_node = curr_entry.getChild()
+          curr_mbr = curr_entry.getMBR()
+          curr_mbr_is_actual = curr_mbr.isRaw()
+          curr_mbr_is_contained = reference_mbr.doesEnclose(curr_mbr)
+          curr_mbr_area = curr_mbr.getArea()
+          # first_priority_component = 0 if curr_mbr_is_contained == True else 1
+          # second_priority_component = (-1 if curr_mbr_is_contained == True else 1) * curr_mbr_area
+          # min-pq
+          # priority = (first_priority_component, second_priority_component)
+          if curr_mbr.isRaw() == True:
+            priority = -1 * curr_mbr_area
+            item = curr_entry
+            pair = (priority,item)
+            heapq.heappush(heap,pair)
+          elif curr_mbr.isRaw() == False:
+            item = curr_entry
+            internal_node_stack_deque.appendleft(item)
+    # print "conflict x-tree:", conflict_x_tree.toString()
+  # for a well-formed r-tree, this takes O(n * log(n)) time, 
+  # where n is number of actual rectangles or leaves; 
+  # assumes that rectangles are distinct
+  def getAllRectangleCloseAncestors(self):
+    start_rectangle_nodes = [x for x in self.getNodes() if x.getEntry().getMBR().isRaw() == True]
+    start_rectangle_entries = [x.getEntry() for x in start_rectangle_nodes]
+    start_rectangle_to_close_ancestor_entries_dict = {}
+    for start_rectangle_entry in start_rectangle_entries:
+      start_rectangle_to_close_ancestor_entries_dict[start_rectangle_entry] = []
+    for start_rectangle_entry in start_rectangle_entries:
+      close_descendant_entries = self.getRectangleCloseDescendants(start_rectangle_entry)
+      for close_descendant_entry in close_descendant_entries:
+        start_rectangle_to_close_ancestor_entries_dict[close_descendant_entry].append(start_rectangle_entry)
+    return start_rectangle_to_close_ancestor_entries_dict
 def main():
 
   point1 = (30, 100, 0)
@@ -1355,6 +1522,7 @@ def main():
   # tree.delete(entry8)
   # tree.insert(entry1)
 
+  """
   tree.delete(entry1)
   tree.delete(entry2)
   tree.delete(entry3)
@@ -1363,9 +1531,10 @@ def main():
   tree.delete(entry6)
   tree.delete(entry7)
   tree.delete(entry8)
+  """
   print tree.toString()
 
-  tree = RTree()
+  tree2 = RTree()
   import random
   entries = []
   # lower_rights = [(3, 10, 10), (1, 10, 10), (8, 10, 10), (6, 10, 10), (9, 10, 10), (6, 10, 10), (9, 10, 10), (3, 10, 10), (1, 10, 10), (3, 10, 10)]
@@ -1453,7 +1622,7 @@ def main():
   # for entry in entries[0 : 4]:
   # for entry in entries[0 : 15]:
   for entry in entries:
-    tree.insert(entry)
+    tree2.insert(entry)
     """
     if entry.getChild().getParent() == None:
       raise Exception()
@@ -1461,16 +1630,33 @@ def main():
   # print tree.toString()
   # for entry in entries[0 : 4]:
   # print "supernodes:", [x for x in tree.getNodes() if x.isSuperNode() == True], tree.getRootEntry().getChild()
-  print len(tree.getNodes())
+  print len(tree2.getNodes())
+
+  # print tree2.getAllRectangleCloseAncestors()
+
+  # raise Exception()
+
   # for entry in entries[0 : 15]:
   for entry in entries:
     # if len(tree.getNodes()) != 0:
     # print "removing entry with mbr:", entry.getMBR().toString()
     # print "tree, currently:", tree.toString()
-    tree.delete(entry)
+    tree2.delete(entry)
     pass
-    
+
   # print tree.toString()
+
+  result = tree.getRectangleCloseDescendants(entry8)
+  print result
+
+  result = tree.getAllRectangleCloseAncestors()
+  print result
+  print len(result)
+  for entry_to_close_ancestor_entry_list_pair in result.items():
+    entry, close_ancestor_entry_list = entry_to_close_ancestor_entry_list_pair
+    print "start rectangle:", entry.getMBR().toString()
+    for close_ancestor_entry in close_ancestor_entry_list:
+      print "close ancestor:", close_ancestor_entry.getMBR().toString()
 
 if __name__ == "__main__":
   main()
