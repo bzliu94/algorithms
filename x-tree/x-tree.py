@@ -28,6 +28,8 @@
 #   and depth-first stack for internal nodes and 
 #   best-first priority queue for leaf nodes
 
+# updated on 2016-11-16 to fix margin calculation
+
 # note that we assume rectangles are unique for close-descendant 
 #   and close-ancestor finding; the assumption is necessary 
 #   to make strong running time estimates; the reason is that 
@@ -43,7 +45,7 @@
 # note that M of two works
 
 import sys
-import PythonMagick
+# import PythonMagick
 import heapq
 from collections import deque
 # min-pq
@@ -305,8 +307,29 @@ class MBR:
       intersection_volume = reduce(lambda x, y: x * y, sides)
       return intersection_volume
   def getMarginValue(self):
+
     upper_left = self.getUpperLeft()
     lower_right = self.getLowerRight()
+
+    if self.getDimension() == 0:
+
+      raise Exception()
+
+    if self.getDimension() == 1:
+
+      x1 = upper_left[0]
+      x2 = lower_right[0]
+      margin = x2 - x1
+      return margin
+
+    if self.getDimension() == 2:
+
+
+      x1, y1 = upper_left
+      x2, y2 = lower_right
+      margin = 2 * (x2 - x1) + 2 * (y2 - y1)
+      return margin
+
     surface_area = 0
     for i in xrange(self.getDimension()):
       comp_1a = upper_left[i]
@@ -888,7 +911,7 @@ class RTree:
     else:
       overlap_ratio = overlap_area / (1.0 * union_area)
     # raise Exception()
-    if overlap_ratio >= RTree.MAX_OVERLAP_RATIO:
+    if overlap_ratio > RTree.MAX_OVERLAP_RATIO:
       # raise Exception()
       result2 = self.xtreeOverlapMinimalSplit(node, entry)
       entry_collection3, entry_collection4, dimension, do_fail = result2
@@ -1354,11 +1377,11 @@ have_resulting_second_entry_from_split)
     root_mbr_is_actual = root_mbr.isRaw()
     root_mbr_is_contained = reference_mbr.doesEnclose(root_mbr)
     root_mbr_area = root_mbr.getArea()
-    # first_priority_component = 0 if root_mbr_is_contained == True else 1
-    # second_priority_component = (-1 if root_mbr_is_contained == True else 1) * root_mbr_area
+    first_priority_component = 0 if root_mbr_is_contained == True else 1
+    second_priority_component = (-1 if root_mbr_is_contained == True else 1) * root_mbr_area
     # min-pq
-    # priority = (first_priority_component, second_priority_component)
-    priority = -1 * root_mbr_area
+    priority = (first_priority_component, second_priority_component)
+    # priority = -1 * root_mbr_area
     # entry_pq = PriorityQueue()
     heap = []
     # entry_pq.push(root_entry, priority)
@@ -1374,7 +1397,7 @@ have_resulting_second_entry_from_split)
   def getRectangleCloseDescendantsHelper(self, heap, reference_mbr, result_entry_list, ignore_entry):
     conflict_x_tree = RTree()
     internal_node_stack_deque = deque()
-    # while entry_pq.getSize() != 0:
+    # while len(heap) != 0:
     while len(internal_node_stack_deque) != 0 or len(heap) != 0:
       # entry = entry_pq.pop()
       item = None
@@ -1382,6 +1405,7 @@ have_resulting_second_entry_from_split)
         (priority,item) = heapq.heappop(heap)
       elif len(internal_node_stack_deque) != 0:
         item = internal_node_stack_deque.popleft()
+      # (priority,item) = heapq.heappop(heap)
       entry = item
       node = entry.getChild()
       mbr = entry.getMBR()
@@ -1420,6 +1444,7 @@ have_resulting_second_entry_from_split)
       elif node.isLeafNode() == False:
         # if we made it this far, we should add children to priority queue
         entries = node.getEntries()
+        priority_tagged_internal_entries = []
         for curr_entry in entries:
           # set priority correctly and add to priority queue
           curr_node = curr_entry.getChild()
@@ -1427,8 +1452,8 @@ have_resulting_second_entry_from_split)
           curr_mbr_is_actual = curr_mbr.isRaw()
           curr_mbr_is_contained = reference_mbr.doesEnclose(curr_mbr)
           curr_mbr_area = curr_mbr.getArea()
-          # first_priority_component = 0 if curr_mbr_is_contained == True else 1
-          # second_priority_component = (-1 if curr_mbr_is_contained == True else 1) * curr_mbr_area
+          first_priority_component = 0 if curr_mbr_is_contained == True else 1
+          second_priority_component = (-1 if curr_mbr_is_contained == True else 1) * curr_mbr_area
           # min-pq
           # priority = (first_priority_component, second_priority_component)
           if curr_mbr.isRaw() == True:
@@ -1437,8 +1462,22 @@ have_resulting_second_entry_from_split)
             pair = (priority,item)
             heapq.heappush(heap,pair)
           elif curr_mbr.isRaw() == False:
-            item = curr_entry
-            internal_node_stack_deque.appendleft(item)
+            if curr_mbr.doesEnclose(reference_mbr) == False and reference_mbr.doesEnclose(curr_mbr) == False:
+              continue
+            # item = curr_entry
+            # internal_node_stack_deque.appendleft(item)
+            priority = (first_priority_component, second_priority_component)
+            priority_tagged_internal_entry = (priority, curr_entry)
+            priority_tagged_internal_entries.append(priority_tagged_internal_entry)
+          # item = curr_entry
+          # pair = (priority,item)
+          # if curr_mbr.doesEnclose(reference_mbr) == True or reference_mbr.doesEnclose(curr_mbr) == True:
+          # heapq.heappush(heap,pair)
+        priority_tagged_internal_entries.sort(key = lambda x: x[0], reverse = True)
+        for priority_tagged_internal_entry in priority_tagged_internal_entries:
+          priority, internal_entry = priority_tagged_internal_entry
+          item = internal_entry
+          internal_node_stack_deque.appendleft(item)
     # print "conflict x-tree:", conflict_x_tree.toString()
   # for a well-formed r-tree, this takes O(n * log(n)) time, 
   # where n is number of actual rectangles or leaves; 
@@ -1454,6 +1493,38 @@ have_resulting_second_entry_from_split)
       for close_descendant_entry in close_descendant_entries:
         start_rectangle_to_close_ancestor_entries_dict[close_descendant_entry].append(start_rectangle_entry)
     return start_rectangle_to_close_ancestor_entries_dict
+  def draw(self):
+    # im = Image.new("RGB", (512, 512), "white")
+    """
+    im = Image.new("RGB", (768, 768), "white")
+    draw = ImageDraw.Draw(im)
+    root = self.getRoot()
+    root.draw(self, draw, 0)
+    im.save("tree.png", "PNG")
+    """
+    # image = PythonMagick.Image(PythonMagick.Geometry("768x768"), "white")
+    image = PythonMagick.Image(PythonMagick.Geometry("1536x1536"), "white")
+    root_entry = self.getRootEntry()
+    entries = [root_entry]
+    RTreeEntry.draw(self, entries, image, 0)
+    """
+    image.strokeColor("orange")
+    image.fillColor("none")
+    image.strokeWidth(4)
+    multiplier = 3 * 0.8
+    # offset = (768 * 0.2) / 2
+    offset = (1536 * 0.2) / 2
+    x1 = 0
+    y1 = 0
+    x2 = 47
+    y2 = 60
+    next_x1 = x1 * multiplier + offset
+    next_y1 = y1 * multiplier + offset
+    next_x2 = x2 * multiplier + offset
+    next_y2 = y2 * multiplier + offset
+    """
+    # image.draw(PythonMagick.DrawableRectangle(next_x1, next_y1, next_x2, next_y2))
+    image.write("tree.png")
 def main():
 
   point1 = (30, 100, 0)
@@ -1562,7 +1633,37 @@ def main():
 ((800, 709, 871), (1390, 1402, 1548)), \
 ((433, 499, 483), (1300, 1330, 1055))]
   """
-  for i in xrange(10):
+  # n = 10,000 works in 1 min. 54 sec. for pypy with m = 2 and M = 4
+  # n = 1,000 works in 2.996 sec. for pypy with m = 2 and M = 4
+  # n = 1,000 works in 3.428 sec. for pypy with m = 8 and M = 16
+  # n = 6,000 works in 56.672 sec. for pypy with m = 8 and M = 16
+  # these numbers are for upper-left's in (100, 10100) and 
+  # lower-right's in (ul_i, ul_i + 10000)
+
+  # two strange things going on - saturation occurs 
+  # if we increase n and do not increase domains and 
+  # high inter-group overlap means maximal disjointedness 
+  # is not going to be good enough to cut down branches explored; 
+  # to counter saturation, domain has to grow with n
+
+  # n = 100 # 0.427 seconds (~1x slower for 1x growth; expected 1x slower)
+  # n = 1000 # 1.1649 seconds (~2.72x slower for 10x growth; expected 33x slower)
+  # n = 5500 # 23.899 seconds (~55.96x slower for 55x growth; expected 317x slower)
+  # n = 10000 # 84.222 seconds (~197x slower for 100x growth; expected 664x slower)
+  # n = 14500 # 170.053 seconds (~398x slower for 145x growth; expected 1040x slower)
+  # n = 20000 # 230.0411 seconds (~538x slower for 200x growth; expected 1528x slower)
+
+  # n = 2000
+
+  # n = 1000
+
+  # n = 20000
+
+  n = 1000
+
+  import math
+
+  for i in xrange(n):
     upper_left = None
     lower_right = None
     """
@@ -1579,16 +1680,30 @@ def main():
       upper_left = (100, 100)
       lower_right = (120, 120)
     """
-    x1 = int(100 + random.random() * 1000)
-    y1 = int(100 + random.random() * 1000)
-    z1 = int(100 + random.random() * 1000)
 
-    x2 = int(x1 + random.random() * 1000)
-    y2 = int(y1 + random.random() * 1000)
-    z2 = int(z1 + random.random() * 1000)
+    denominator = (100 * math.log(100, 2)) ** (1 / 3.0)
+    k = 1
+    # k = int(round(denominator / denominator))	# for n = 100
+    # k = int(round((1000 * math.log(1000, 2)) ** (1 / 3.0) / denominator))	# for n = 1000
+    # k = int(round((5500 * math.log(5500, 2)) ** (1 / 3.0) / denominator))	# for n = 5500
+    # k = int(round((10000 * math.log(10000, 2)) ** (1 / 3.0) / denominator))	# for n = 10000
+    # k = int(round((20000 * math.log(20000, 2)) ** (1 / 3.0) / denominator))	# for n = 20000
+    # k = int(round((14500 * math.log(14500, 2)) ** (1 / 3.0) / denominator))	# for n = 14500
+    # x1 = int(100 + random.randint(0, k) * 100)
+    # y1 = int(100 + random.randint(0, k) * 100)
+    # z1 = int(100 + random.randint(0, k) * 100)
 
-    upper_left = (x1, y1, z1)
-    lower_right = (x2, y2, z2)
+    # x2 = int(x1 + random.random() * 100)
+    # y2 = int(y1 + random.random() * 100)
+    # z2 = int(z1 + random.random() * 100)
+
+    x = random.randint(0, 10000)
+    y = random.randint(0, 10000)
+
+    # upper_left = (x1, y1, z1)
+    # lower_right = (x2, y2, z2)
+    upper_left = (x, y)
+    lower_right = (x, y)
     # upper_left = ul_lr_pairs[i][0]
     # lower_right = ul_lr_pairs[i][1]
     # x = int(random.randint(1, 100))
@@ -1630,9 +1745,30 @@ def main():
   # print tree.toString()
   # for entry in entries[0 : 4]:
   # print "supernodes:", [x for x in tree.getNodes() if x.isSuperNode() == True], tree.getRootEntry().getChild()
+
+  # tree2.draw()
+
   print len(tree2.getNodes())
 
-  # print tree2.getAllRectangleCloseAncestors()
+  import time
+
+  time1 = time.time()
+
+  result = tree2.getAllRectangleCloseAncestors()
+
+  time2 = time.time()
+
+  time_diff = time2 - time1
+
+  print "time difference:", time_diff, "seconds"
+
+  # raise Exception()
+
+  for entry_to_close_ancestor_entry_list_pair in result.items():
+    entry, close_ancestor_entry_list = entry_to_close_ancestor_entry_list_pair
+    print "start rectangle:", entry.getMBR().toString()
+    for close_ancestor_entry in close_ancestor_entry_list:
+      print "close ancestor:", close_ancestor_entry.getMBR().toString()
 
   # raise Exception()
 
@@ -1641,7 +1777,7 @@ def main():
     # if len(tree.getNodes()) != 0:
     # print "removing entry with mbr:", entry.getMBR().toString()
     # print "tree, currently:", tree.toString()
-    tree2.delete(entry)
+    # tree2.delete(entry)
     pass
 
   # print tree.toString()

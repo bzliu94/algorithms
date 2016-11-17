@@ -39,3 +39,7 @@ A collection of algorithms.
 <img src="https://raw.githubusercontent.com/bzliu94/algorithms/master/vam-split_r-tree/tree.old.18.png" alt="vam-split r-tree" width="400">
 
 <img src="https://raw.githubusercontent.com/bzliu94/algorithms/master/rule_mining_pc_plot_ui/rule_mining_ui.png" alt="rule mining ui" width="400">
+
+<img src="https://raw.githubusercontent.com/bzliu94/algorithms/master/x-tree/x-tree.png" alt="x-tree" width="400">
+
+
