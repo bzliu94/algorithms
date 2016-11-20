@@ -1029,6 +1029,20 @@ have_resulting_second_entry_from_split, False)
       # return BTreeSearch(x.c_i, k)
     pass
   """
+  # returns entries
+  def doOverlapQuery(self, mbr):
+    partial_result = []
+    self.doOverlapQueryHelper(mbr, self.getRootEntry(), partial_result)
+    return partial_result
+  def doOverlapQueryHelper(self, mbr, entry, partial_result):
+    if entry.getMBR().isRaw() == True:
+      if MBR.doOverlap(entry.getMBR(), mbr) == True:
+        partial_result.append(entry)
+    else:
+      entries = entry.getChild().getEntries()
+      for curr_entry in entries:
+        if MBR.doOverlap(curr_entry.getMBR(), mbr) == True:
+          self.doOverlapQueryHelper(mbr, curr_entry, partial_result)
   # result stored in NearestNeighbor object nearest
   def nearestNeighborSearch(self, point, nearest):
     root_entry = self.getRootEntry()
@@ -1266,6 +1280,7 @@ def main():
   node2 = RTreeNode(None, [entry1, entry2], True)
   entry3.setChild(node2)
   node2.setParent(node1)
+
   tree = RTree()
   print tree.toString()
   curr_root = tree.getRootEntry().getChild()
@@ -1286,6 +1301,11 @@ def main():
   curr_entry2 = RTreeEntry(RawMBR((120, 100), (120, 100), Point(120, 100, 8)), RTreeNode(None, [], True))
   tree.insert(curr_entry2)
   print tree.toString()
+
+  result = tree.doOverlapQuery(RawMBR((50, 100), (100, 100), None))
+  next_result = [x.getMBR().toString() for x in result]
+  print "result:", next_result
+
   nearest_result = NearestNeighbor()
   tree.nearestNeighborSearch((50, 0), nearest_result)
   print nearest_result.toString()
