@@ -328,11 +328,16 @@ class MBR:
     upper_left_b = mbr_b.getUpperLeft()
     lower_right_b = mbr_b.getLowerRight()
     do_overlap = True
+    # assume that rectangles never have negative area
     for i in xrange(mbr_a.getDimension()):
-      comp_a1 = upper_left_a[i]
-      comp_a2 = lower_right_a[i]
-      comp_b1 = upper_left_b[i]
-      comp_b2 = lower_right_b[i]
+      # a "left"
+      comp_a1 = min(upper_left_a[i], lower_right_a[i])
+      # a "right"
+      comp_a2 = max(upper_left_a[i], lower_right_a[i])
+      # b "left"
+      comp_b1 = min(upper_left_b[i], lower_right_b[i])
+      # b "right"
+      comp_b2 = max(upper_left_b[i], lower_right_b[i])
       do_overlap = do_overlap and comp_a1 <= comp_b2 and comp_a2 >= comp_b1
       if do_overlap == False:
         break
@@ -1855,6 +1860,7 @@ def main():
   print tree.doEnclosureQuery(mbr2)
   print tree.doContainmentQuery(mbr2)
   print tree.doContainmentQuery(mbr2b)
+  # raise Exception()
 
   import sys
   import string

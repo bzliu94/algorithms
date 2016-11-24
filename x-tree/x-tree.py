@@ -271,18 +271,28 @@ class MBR:
     area_change = enlarged_mbr_area - base_mbr_area
     return area_change
   @staticmethod
-  def doOverlap(mbr_a, mbr_b):
+  def doOverlap(mbr_a, mbr_b, without_borders = False):
     upper_left_a = mbr_a.getUpperLeft()
     lower_right_a = mbr_a.getLowerRight()
     upper_left_b = mbr_b.getUpperLeft()
     lower_right_b = mbr_b.getLowerRight()
     do_overlap = True
+    # assume that rectangles never have negative area
     for i in xrange(mbr_a.getDimension()):
-      comp_a1 = upper_left_a[i]
-      comp_a2 = lower_right_a[i]
-      comp_b1 = upper_left_b[i]
-      comp_b2 = lower_right_b[i]
-      do_overlap = do_overlap and comp_a1 <= comp_b2 and comp_a2 >= comp_b1
+      # a "left"
+      comp_a1 = min(upper_left_a[i], lower_right_a[i])
+      # a "right"
+      comp_a2 = max(upper_left_a[i], lower_right_a[i])
+      # b "left"
+      comp_b1 = min(upper_left_b[i], lower_right_b[i])
+      # b "right"
+      comp_b2 = max(upper_left_b[i], lower_right_b[i])
+      # print comp_a1, comp_a2, comp_b1, comp_b2
+      # do_overlap = True
+      if without_borders == True:
+        do_overlap = do_overlap and comp_a1 < comp_b2 and comp_a2 > comp_b1
+      else:
+        do_overlap = do_overlap and comp_a1 <= comp_b2 and comp_a2 >= comp_b1
       if do_overlap == False:
         break
     return do_overlap
@@ -1284,19 +1294,20 @@ have_resulting_second_entry_from_split)
       return
   # not tested
   # returns entries
-  def doOverlapQuery(self, mbr):
+  # does intersection query
+  def doOverlapQuery(self, mbr, without_borders = False):
     partial_result = []
-    self.doOverlapQueryHelper(mbr, self.getRootEntry(), partial_result)
+    self.doOverlapQueryHelper(mbr, self.getRootEntry(), partial_result, without_borders)
     return partial_result
-  def doOverlapQueryHelper(self, mbr, entry, partial_result):
+  def doOverlapQueryHelper(self, mbr, entry, partial_result, without_borders):
     if entry.getMBR().isRaw() == True:
-      if MBR.doOverlap(entry.getMBR(), mbr) == True:
+      if MBR.doOverlap(entry.getMBR(), mbr, without_borders) == True:
         partial_result.append(entry)
     else:
       entries = entry.getChild().getEntries()
       for curr_entry in entries:
         if MBR.doOverlap(curr_entry.getMBR(), mbr) == True:
-          self.doOverlapQueryHelper(mbr, curr_entry, partial_result)
+          self.doOverlapQueryHelper(mbr, curr_entry, partial_result, without_borders)
   # returns entries
   def doEnclosureQuery(self, mbr):
     partial_result = []
@@ -1333,6 +1344,7 @@ have_resulting_second_entry_from_split)
     return partial_result
   def doContainmentQueryHelper(self, mbr, entry, partial_result):
     if entry.getMBR().isRaw() == True:
+      # print mbr.toString(), entry.getMBR().toString()
       if mbr.doesEnclose(entry.getMBR()) == True:
         partial_result.append(entry)
     else:
@@ -1584,8 +1596,11 @@ def main():
   tree.insert(entry8)
   print tree.toString()
   print tree.doEnclosureQuery(curr_mbr2)
-  print tree.doContainmentQuery(curr_mbr2)
-  print tree.doContainmentQuery(curr_mbr2b)
+  curr_mbr3 = RawMBR((50, 100, 0), (110, 200, 100), None)
+  print tree.doContainmentQuery(curr_mbr3)
+  # raise Exception()
+  print tree.doOverlapQuery(curr_mbr2)
+  # raise Exception()
 
   print tree.toString()
   # tree.delete(entry1)
