@@ -1,8 +1,33 @@
+EMPTY_STR = ""
+
 // if a column has all EMPTY values, then it is removed because an empty column is a string column and for string columns we require at least two non-EMPTY values to have it survive
 
-function idempotentParsePossibleIntervalStrIntoMidpoint(value, pc) {
+// BL - only converts given values if they are interval strings and we return a numerical value
+
+function idempotentParsePossibleIntervalStrIntoMidpoint(value, pc, column_name) {
+    // console.log("column name:", column_name, pc["column_name_to_column_num_dict"]())
+    column_num = pc["column_name_to_column_num_dict"]()[column_name]
     var next_val = 0;
-    if (typeof value === "string" && value.split("...").length == 2) {
+    // console.log(pc["condensed_column_is_date_range_type_list"]()[column_num])
+    if (pc["condensed_column_is_date_range_type_list"]()[column_num] == true) {
+	// BL - value is a date range
+	// BL - added midpoint date logic
+	// var date_range_str = "05/06/2000 08:00 AM +0000...09/24/2009 10:09 PM +0000"
+	// console.log(column_num, column_name, value, pc["condensed_column_is_date_range_type_list"]())
+	// throw "whoops"
+	var date_range_str = value
+	var split_date_str_list = date_range_str.split("...")
+	var date_start_str = split_date_str_list[0]
+	var date_end_str = split_date_str_list[1]
+	var date_start = new Date(date_start_str)
+	var date_end = new Date(date_end_str)
+	var date_start_sec = date_start.getTime() / 1000
+	var date_end_sec = date_end.getTime() / 1000
+	var mid_date_sec = (date_start_sec + date_end_sec) / 2
+	var mid_date = new Date(mid_date_sec * 1000)
+	// console.log(mid_date)
+	next_val = mid_date.getTime();
+    } else if (typeof value === "string" && value.split("...").length == 2 && pc["condensed_column_is_quant_type_list"]()[column_num] == true) {
 	var arr = pc.toIntervalFloatArray(value);
 	var l = arr[0];
 	var r = arr	[1];
@@ -41,15 +66,46 @@ function idempotentParsePossibleIntervalStrIntoMidpoint(value, pc) {
 }
 
 
-// d[k] is [x_non_scaled, y_non_scaled (possibly NaN), attribute string (possibly interval string), optional attribute name string (for if we are dealing with an interval attribute
+// d[k] is [x_non_scaled, y_non_scaled (possibly NaN), attribute string (possibly interval string), optional attribute name string (for if we are dealing with an interval attribute)
 
 // y_scale is a function that determines scaled y upon application
+
+// converts interval strings to numerical values and scales
 
 function intervalStrToMidpoint(d_k, pc, do_scale) {
 
     var val = 0;
-    if (typeof d_k[2] === "string" && d_k[2].split("...").length == 2) {
+    // console.log(d_k[3])
+    column_name = d_k[3]
+    column_num = pc["column_name_to_column_num_dict"]()[column_name]
+    is_date_range = pc["condensed_column_is_date_range_type_list"]()[column_num]
+    // is_percent_range = pc["condensed_column_is_percent_type_list"]()[column_num]
+    // console.log(is_date_range, column_name,
+    if (is_date_range == true) {
+	// assume unscaled y is already a date object
+	// val = d_k[2]
+	// console.log(val)
+	// console.log(d_k[2])
+	if (d_k[2] instanceof Date) {
+	  val = d_k[2]
+	} else if (parseFloat(d_k[2]) == d_k[2]) {
+	  // console.log(d_k[2])
+	  val = d_k[2]
+	} else {
+	  val = idempotentParsePossibleIntervalStrIntoMidpoint(d_k[2], pc, column_name)
+	}
+	if (do_scale == true) {
+	    // 																																																																																																																																																																																																																																																																																																																																																																																																																			console.log(pc.yscale, d_k[3])
+	    val = pc.yscale[d_k[3]](val);
+	}
+	// console.log(val)
+	// if (typeof d_k[2] === "string") throw "string provided, though the method name implies it is okay"
+	// console.log(d_k[2])
+	// console.log(val)
+    // BL - requiring that we're for a quantitative attribute here fixes case when attribute is categorical; points show up
+    } else if (typeof d_k[2] === "string" && d_k[2].split("...").length == 2 && pc["condensed_column_is_quant_type_list"]()[column_num] == true) {
 	// we are dealing with an interval attribute; retrieve midpoint and transform
+	// BL - most of the time, we have already called idempotentParsePossibleIntervalStrIntoMidpoint() to determine d_k[1], which is unscaled_y; but in that case, the value would no longer be a string, and as a number, it passes through
 	var arr = pc.toIntervalFloatArray(d_k[2]);
 	var l = arr[0];
 	var r = arr[1];
@@ -60,20 +116,27 @@ function intervalStrToMidpoint(d_k, pc, do_scale) {
 	    val = m;
 	}
     } else if (typeof d_k[2] === "string" && isNaN(parseFloat(d_k[2])) == false) {
+	// console.log(d_k[2], d_k[2].split("..."), pc["condensed_column_is_quant_type_list"]()[column_num], column_name)
 	// BL - had a bug here where we need parseFloat()
 	// var curr_val = parseFloat(d_k[2])
 	var curr_val = d_k[2]
 	if (do_scale == true) {
 	    val = pc.yscale[d_k[3]](curr_val);
+	    // console.log(val)
 	} else {
 	    val = curr_val;
 	}
+    } else if (d_k[2] === undefined) {
+	// BL - i'm not sure why we have to handle this here
+	val = d_k[2]
     } else {
 	// var curr_val = parseFloat(interval_str);
 	// val = pc.toTypeCoerceNumbers(interval_str) === "string" ? interval_str : curr_val
 	// y_scaled is well-formed; return it
 	if (do_scale == true) {
+	    // console.log(pc.yscale, d_k[3])
 	    val = pc.yscale[d_k[3]](d_k[2]);
+	    // console.log(val)
 	} else {
 	    val = d_k[2];
 	}
@@ -190,6 +253,8 @@ d3.parcoords = function(config) {
 	    if (flags.shadows){paths(__.data, ctx.shadows);}
 	})
 	.on("dimensions", function(d) {
+            // console.log(__)
+            // console.log(__.dimensions)
 	    xscale.domain(__.dimensions);
 	    if (flags.interactive){pc.render().updateAxes();}
 	})
@@ -252,9 +317,27 @@ d3.parcoords = function(config) {
     function without(arr, item) {
 	return arr.filter(function(elem) { return item.indexOf(elem) === -1; })
     };
+    // BL - this is where we set scale domain
     pc.autoscale = function() {
 	// yscale
 	var defaultScales = {
+	    "date-range": function(k) {
+		return d3.time.scale()
+		    .domain(d3.extent(__.data.filter(function(d) { return d[k] !== EMPTY_STR }), function(d) {
+			// console.log(idempotentParsePossibleIntervalStrIntoMidpoint(d[k], pc, k))
+			// console.log(d[k])
+			if (d[k]) {
+				curr_date = idempotentParsePossibleIntervalStrIntoMidpoint(d[k], pc, k)
+				curr_date = intervalStrToMidpoint([null, curr_date, d[k], k], pc, false)
+				// console.log(d[k], curr_date)
+				return curr_date
+			} else {
+				return null
+			}
+			// return d[k] ? d[k].getTime() : null;
+		    }))
+		    .range([h()+1, 1]);
+	    }, 
 	    "date": function(k) {
 		return d3.time.scale()
 		    .domain(d3.extent(__.data, function(d) {
@@ -266,20 +349,44 @@ d3.parcoords = function(config) {
 		return d3.scale.linear()
                     // BL - tricky conversion to integer here with +d[k]
                     // BL - magic word "EMPTY" used here
-		    .domain(d3.extent(__.data.filter(function(d) { /* console.log(d[k]); */ return !(d[k] === "EMPTY") }), function(d) { return +d[k]; }))
+		    .domain(d3.extent(__.data.filter(function(d) { /* console.log(d[k]); */ return !(d[k] === EMPTY_STR) }), function(d) { return +d[k]; }))
 		    .range([h()+1, 1]);
 	    },
 	    // BL - added 'interval' type
 	    "interval": function(k) {
 		// console.log("k:" + k);
-		var result = d3.scale.linear()
-		// d[k]
-                    // BL - magic word "EMPTY" used here
-		    .domain(d3.extent(__.data.filter(function(d) { /* console.log(d[k]); */ return !(d[k] === "EMPTY") }), function(d) { 
+		/*
+		console.log(d3.extent(__.data.filter(function(d) { return !(d[k] === EMPTY_STR) }), function(d) { 
 			// var val = intervalStrToMidpoint([null, yscale[p](d[p]), d[p], p], pc, true);
 			var unscaled_y = idempotentParsePossibleIntervalStrIntoMidpoint(d[k], pc);
 			return intervalStrToMidpoint([null, unscaled_y, d[k], k], pc, false); 
 		    }))
+		*/
+		var result = d3.scale.linear()
+		// d[k]
+                    // BL - magic word "EMPTY" used here
+		    // BL - range changing occurs here; modify this for percent attributes
+		    .domain(d3.extent(__.data.filter(function(d) { /* console.log(d[k]); */ return !(d[k] === EMPTY_STR) }), function(d) { 
+			// var val = intervalStrToMidpoint([null, yscale[p](d[p]), d[p], p], pc, true);
+			var unscaled_y = idempotentParsePossibleIntervalStrIntoMidpoint(d[k], pc, k);
+			return intervalStrToMidpoint([null, unscaled_y, d[k], k], pc, false); 
+//		    }).map(function(x, i) { if (i == 0) return 0; else if (i == 1) return 100; }))
+		    }).map(function(x, i) {
+				// console.log(k)
+				// console.log(__["column_name_to_column_num_dict"], k)
+				column_num = __["column_name_to_column_num_dict"][k]
+				is_percent_type = __["condensed_column_is_percent_type_list"][column_num]
+				// return x
+				if (is_percent_type) {
+					if (i == 0) {
+						return 0;
+					} else if (i == 1) {
+						return 100;
+					}
+				} else {
+					return x;
+				}
+				}))
 		    .range([h() + 1, 1]);
 		// console.log(result);
 		return result;
@@ -306,14 +413,19 @@ d3.parcoords = function(config) {
 		    return a < b;
 		});
 
+		// domain = domain.filter(function(d) { return d != EMPTY_STR; })
+
+		// console.log(domain, EMPTY_STR, 1)
+
 		return d3.scale.ordinal()
                     // BL - magic word "EMPTY" used here
-		    .domain(domain.filter(function(d) { /* console.log(d[k]); */ return !(d[k] === "EMPTY") }))
+		    .domain(domain.filter(function(d) { /* console.log(d[k]); */ return d !== EMPTY_STR }))
 		    .rangePoints([h()+1, 1]);
 	    }
 	};
 
 	__.dimensions.forEach(function(k) {
+	    // console.log(k, __.types[k])
 	    yscale[k] = defaultScales[__.types[k]](k);
 	});
 
@@ -321,10 +433,12 @@ d3.parcoords = function(config) {
 	    yscale[k] = defaultScales[__.types[k]](k);
 	});
 
+        // BL - if this removes a dimension, bugs may occur
+
 	// hack to remove ordinal dimensions with many values
 	pc.dimensions(pc.dimensions().filter(function(p,i) {
 	    var uniques = yscale[p].domain().length;
-	    if (__.types[p] == "string" && (uniques > 60 || uniques < 2)) {
+	    if (__.types[p] == "string" && (uniques > 60 || uniques < 1)) {
 		return false;
 	    }
 	    return true;
@@ -424,16 +538,29 @@ d3.parcoords = function(config) {
     };
 
     // try to coerce to number before returning type
-    pc.toTypeCoerceNumbers = function(v) {
-	if ((parseFloat(v) == v) && (v != null)) {
+    pc.toTypeCoerceNumbers = function(v, column_name) {
+	// console.log(__["column_name_to_column_num_dict"], this.condensed_column_is_quant_type_list(), column_name)
+	col = __["column_name_to_column_num_dict"][column_name]
+	// v = new Date("10/27/2009 06:00 PM +0000")
+	// console.log(this.condensed_column_is_quant_type_list()[col], col)
+	if (__["condensed_column_is_date_range_type_list"][col] == true) {
+	    // console.log(__["condensed_column_is_date_range_type_list"], col)
+	    return "date-range"
+        } else if (this.condensed_column_is_quant_type_list()[col] == false) {
+	    // BL - if column is categorical (e.g. a numeric category like a meeting room number), 
+	    //   we have a string
+	    // console.log("hello")
+	    return "string"
+	} else if ((parseFloat(v) == v) && (v != null)) {
 	    return "number";
 	    // BL - added 'interval' type; this is crude
 	} else if (typeof v == "string" && v.split("...").length == 2) {
             // console.log("hello");
             return "interval";
 	} else {
-            // can, e.g., return "string"
-            return pc.toType(v);
+            // BL - can, e.g., return "string" or "date"
+            result = pc.toType(v);
+	    return result;
 	}
     };
 
@@ -448,8 +575,8 @@ d3.parcoords = function(config) {
                 var type = "string"
                 for (var i = 0; i < data.length; i++) {
                   // BL - magic word "EMPTY" is used
-                  if ((data[i][col] === "EMPTY") == false) {
-                    type = pc.toTypeCoerceNumbers(data[i][col])
+                  if ((data[i][col] === EMPTY_STR) == false) {
+                    type = pc.toTypeCoerceNumbers(data[i][col], col)
                   }
                 }
                 types[col] = type
@@ -458,9 +585,18 @@ d3.parcoords = function(config) {
 	return types;
     };
     pc.render = function() {
+
+	// console.log("hello", __.dimensions, yscale)
+
 	// try to autodetect dimensions and create scales
-	if (!__.dimensions.length) pc.detectDimensions();
-	if (!(__.dimensions[0] in yscale)) pc.autoscale();
+	if (!__.dimensions.length) {
+		// console.log("1")
+		pc.detectDimensions();
+	}
+	if (!(__.dimensions[0] in yscale)) {
+		// console.log("2")
+		pc.autoscale();
+	}
 
 	pc.render[__.mode]();
 
@@ -551,6 +687,7 @@ d3.parcoords = function(config) {
     }
 
     // BL - modified this to deal with NaN problem for interval attributes
+    // BL - need to modify this to have proper axis dots as well
 
     function compute_centroids(row) {
 	var centroids = [];
@@ -561,15 +698,19 @@ d3.parcoords = function(config) {
 	for (var i = 0; i < cols; ++i) {
 	    // centroids on 'real' axes
 	    var x = position(p[i]);
+            // console.log(x)
 	    // var y = yscale[p[i]](row[p[i]]);
             // console.log(row[p[i]])
             // BL - this change may break things
-            if (row[p[i]] === "EMPTY") {
+            if (row[p[i]] === EMPTY_STR) {
               continue
             }
             // BL - note that y is sometimes NaN for numeric attributes when we have a gap
             // BL - change here
-            var y = intervalStrToMidpoint([null, idempotentParsePossibleIntervalStrIntoMidpoint(row[p[i]], pc), row[p[i]], p[i]], pc, true);
+	    // console.log(__["condensed_column_names"][i])
+            var y = intervalStrToMidpoint([null, idempotentParsePossibleIntervalStrIntoMidpoint(row[p[i]], pc, __["condensed_column_names"][i]), row[p[i]], p[i]], pc, true);
+	    // console.log(__["condensed_column_is_date_range_type_list"][i], x, y)
+	    // console.log(__["condensed_column_is_percent_type_list"][i], x, y, idempotentParsePossibleIntervalStrIntoMidpoint(row[p[i]], pc, __["condensed_column_names"][i]))
 	    centroids.push([x, y, i]);
 	    //centroids.push($V([x, y]));
 
@@ -577,7 +718,8 @@ d3.parcoords = function(config) {
 	    if (i < cols - 1) {
 		var cx = x + a * (position(p[i+1]) - x);
 		// var cy = y + a * (yscale[p[i+1]](row[p[i+1]]) - y);
-                var cy = y + a * intervalStrToMidpoint([null, idempotentParsePossibleIntervalStrIntoMidpoint(row[p[i + 1]], pc), row[p[i + 1]], p[i + 1]], pc, true);
+		// console.log(__["condensed_column_names"][i + 1])
+                var cy = y + a * intervalStrToMidpoint([null, idempotentParsePossibleIntervalStrIntoMidpoint(row[p[i + 1]], pc, __["condensed_column_names"][i + 1]), row[p[i + 1]], p[i + 1]], pc, true);
 		if (__.bundleDimension !== null) {
 		    var leftCentroid = __.clusterCentroids.get(yscale[__.bundleDimension](row[__.bundleDimension])).get(p[i]);
 		    var rightCentroid = __.clusterCentroids.get(yscale[__.bundleDimension](row[__.bundleDimension])).get(p[i+1]);
@@ -645,12 +787,23 @@ d3.parcoords = function(config) {
 	__.data.forEach(function(d) {
 	    __.dimensions.map(function(p, i) {
 
-			var unscaled_y = idempotentParsePossibleIntervalStrIntoMidpoint(d[p], pc);
-			var scaled_y = intervalStrToMidpoint([null, unscaled_y, d[p], p], pc, true); 
-
-		// ctx.fillRect(position(p) - 0.75, yscale[p](d[p]) - 0.75, 5, 5);
-		ctx.fillRect(position(p) - 2.5, scaled_y - 2.5, 5, 5);
-                // console.log(d, p, i, d[p], yscale[p], position(p), yscale[p](d[p]))
+			// console.log(p)
+			var unscaled_y = idempotentParsePossibleIntervalStrIntoMidpoint(d[p], pc, p);
+			var scaled_y = intervalStrToMidpoint([null, unscaled_y, d[p], p], pc, true);
+		/*
+		if (d[p] == 0) {
+			console.log(d[p])
+		}
+		*/
+		if (d[p] === EMPTY_STR) {
+			// BL - null minus a number is a number, so watch out for that
+			// console.log(d[p])
+			return;
+		} else {
+			// ctx.fillRect(position(p) - 0.75, yscale[p](d[p]) - 0.75, 5, 5);
+			ctx.fillRect(position(p) - 2.5, scaled_y - 2.5, 5, 5);
+                	// console.log(d, p, i, d[p], yscale[p], position(p), yscale[p](d[p]))
+		}
 	    });
 	});
 	return this;
@@ -710,6 +863,8 @@ d3.parcoords = function(config) {
 	var prev_global_alpha = ctx.globalAlpha
         // var prev_axis_had_empty = false
 	__.dimensions.map(function(p, i) {
+	    // BL - prev_stroke_style is used to store non-dash color
+	    prev_stroke_style = d3.functor(__.color)(d, i)
             // console.log(position(p));
             // console.log([d, p, i]);
             // BL - this is where positions for segments are determined
@@ -717,22 +872,25 @@ d3.parcoords = function(config) {
             // d[p] is an attribute value for attribute name p
             // yscale[p] is y-scaler function that takes a value in domain (possibly a string for a categorical attribute or a midpoint for an interval attribute
             // var val = intervalStrToMidpoint(d[p], pc);
-            var val = intervalStrToMidpoint([null, idempotentParsePossibleIntervalStrIntoMidpoint(d[p], pc), d[p], p], pc, true);
+	    // console.log(d[p], p)
+            var val = intervalStrToMidpoint([null, idempotentParsePossibleIntervalStrIntoMidpoint(d[p], pc, p), d[p], p], pc, true);
             // console.log(d[p]);
             // console.log(d, p, i, prev_column_name)
             // BL - magic word "EMPTY" is used
             // if (d[p] === "EMPTY" || (prev_column_name != null && d[prev_column_name] === "EMPTY")) {
-            if (d[p] === "EMPTY") {
+            if (d[p] === EMPTY_STR) {
               // empty cell; ignore this axis
               // prev_axis_had_empty = true
-              prev_stroke_style = ctx.strokeStyle
+              // prev_stroke_style = ctx.strokeStyle
               ctx.setLineDash([5])
               ctx.strokeStyle = "silver"
-              return
               // ctx.moveTo(position(p), val);
+              return
             } else {
 	    if (i == 0) {
                 // ctx.moveTo(position(p), yscale[p](val));
+		ctx.strokeStyle = prev_stroke_style
+                ctx.setLineDash([])
 		ctx.moveTo(position(p), val);
 	    } else {
                 // ctx.lineTo(position(p), yscale[p](val));
@@ -797,6 +955,8 @@ d3.parcoords = function(config) {
 	    .attr("transform", "translate(0,-5) rotate(" + __.dimensionTitleRotation + ")");
 	d3.event.preventDefault();
     }
+
+    // BL - this is where we set axes
 
     pc.createAxes = function() {
 	if (g) pc.removeAxes();
@@ -1062,6 +1222,12 @@ d3.parcoords = function(config) {
 
 	    // test if within range
 	    var within = {
+		/*
+		"date-range": function(d,p,dimension) {
+		    console.log("hello")
+		    return extents[dimension][0] <= d[p] && d[p] <= extents[dimension][1]
+		},
+		*/
 		"date": function(d,p,dimension) {
 		    return extents[dimension][0] <= d[p] && d[p] <= extents[dimension][1]
 		},
@@ -1090,8 +1256,8 @@ d3.parcoords = function(config) {
 		      var m = (l + r) / 2.0;
 
 		    */
-
-		    var m = intervalStrToMidpoint([null, idempotentParsePossibleIntervalStrIntoMidpoint(d[p], pc), d[p], p], pc, false);
+		    console.log(d[p], p)
+		    var m = intervalStrToMidpoint([null, idempotentParsePossibleIntervalStrIntoMidpoint(d[p], pc, p), d[p], p], pc, false);
 
 		    return extents[dimension][0] <= m && m <= extents[dimension][1];
 
@@ -1511,6 +1677,43 @@ d3.parcoords = function(config) {
 
     }());
 
+    /*
+
+    pc.setIsQuantFlags = function(condensed_column_is_quant_type_list) {
+      this.condensed_column_is_quant_type_list = condensed_column_is_quant_type_list
+      // console.log("hello")
+      return this
+    }
+
+    */
+
+    /*
+
+    pc.setIsPercentFlags = function(condensed_column_is_percent_type_list) {
+      this.condensed_column_is_percent_type_list = condensed_column_is_percent_type_list
+      return this
+    }
+
+    */
+
+    /*
+
+    pc.setIsDateRangeFlags = function(condensed_column_is_date_range_type_list) {
+      this.condensed_column_is_date_range_type_list = condensed_column_is_date_range_type_list
+      return this
+    }
+
+    */
+
+    /*
+
+    pc.setColumnToColumnNumDict = function(column_name_to_column_num_dict) {
+      this.column_name_to_column_num_dict = column_name_to_column_num_dict
+      return this
+    }
+
+    */
+
     pc.interactive = function() {
 	flags.interactive = true;
 	return this;
@@ -1585,6 +1788,8 @@ d3.parcoords = function(config) {
 	var v = dragging[d];
 	return v == null ? xscale(d) : v;
     }
+    // BL - exposing position()
+    pc.position = position
     pc.version = "0.5.0";
     // this descriptive text should live with other introspective methods
     pc.toString = function() { return "Parallel Coordinates: " + __.dimensions.length + " dimensions (" + d3.keys(__.data[0]).length + " total) , " + __.data.length + " rows"; };
