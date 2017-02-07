@@ -22,6 +22,7 @@ A collection of algorithms.
 19. parallel coordinates plot with interval attribute midpoints and cell omission using hidden segments
 20. rule mining parallel coordinates plot user interface
 21. quantitative/categorical apriori-based association rule mining
+22. bundle #1 - order maintenance list, doubly linked list, adaptable priority queue, heap, splay tree, scapegoat tree, complete binary tree; use concepts of location-aware entries, non-traditional leaf in-order pointers, lazy-remove, custom key transform, custom comparator, height-aware node, label-aware node, path labels
 
 \*: tree is for 2-dimensional objects
 
