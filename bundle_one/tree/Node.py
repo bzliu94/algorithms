@@ -62,7 +62,7 @@ class Node:
   # show string corresponding to entry
   def toString(self):
     if self.hasElement() == False:
-      returnNone
+      return None
     else:
       return self.getElement().toString()
   # show only key corresponding to entry

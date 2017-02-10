@@ -24,6 +24,7 @@ A collection of algorithms.
 21. quantitative/categorical apriori-based association rule mining
 22. bundle #1 - order maintenance list, doubly linked list, adaptable priority queue, heap, splay tree, scapegoat tree, complete binary tree; use concepts of location-aware entries, non-traditional leaf in-order pointers, lazy-remove, custom key transform, custom comparator, height-aware node, label-aware node, path labels
 23. bundle #1 - red-black tree
+24. bundle #1 - 1-d segment tree
 
 \*: tree is for 2-dimensional objects
 
