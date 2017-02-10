@@ -103,7 +103,7 @@ class OneDSegmentTree(RedBlackTree):
   @staticmethod
   def construct(points):
     # print points
-    endpoints = list(set(reduce(lambda x, y: x + y, [list(x) for x in points])))
+    endpoints = list(set(reduce(lambda x, y: x + y, [list(x) for x in points], [])))
     ordered_endpoints = sorted(endpoints)
     # print ordered_endpoints
     ordered_unique_x_points = [(float("-inf"), float("-inf"))] + [(x, x) for x in ordered_endpoints] + [(float("inf"), float("inf"))]
@@ -121,6 +121,9 @@ class OneDSegmentTree(RedBlackTree):
     for entry in entries:
       key, value = entry
       tree.insert(key, value)
+    tree.memoizeSpanningIntervals()
+    tree.memoizeCanonicalSubsets(points)
+    return tree
     """
     print tree.toString()
     print tree.toInorderList()
@@ -150,7 +153,8 @@ tree = OneDSegmentTree()
 """
 one_d_points = [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (0, 7), (-2, 0)]
 # print one_d_points
-OneDSegmentTree.construct(one_d_points)
+tree = OneDSegmentTree.construct(one_d_points)
+print tree.pointQuery(3)
 """
 
 
