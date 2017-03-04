@@ -26,6 +26,7 @@ A collection of algorithms.
 23. bundle #1 - red-black tree
 24. bundle #1 - 1-d segment tree
 25. bundle #1 - 2-d segment tree with rectangle segments
+26. cooley-tukey fft and inverse fft
 
 \*: tree is for 2-dimensional objects
 
