@@ -27,7 +27,7 @@ A collection of algorithms.
 24. bundle #1 - 1-d segment tree
 25. bundle #1 - 2-d segment tree with rectangle segments
 26. cooley-tukey fft and inverse fft
-27. basic s-expression parser
+27. basic and extended s-expression parsers
 28. knuth-morris-pratt (KMP) pattern-matching; shortest repeating sub-pattern (SRSP) in linear time
 
 \*: tree is for 2-dimensional objects
