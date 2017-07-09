@@ -29,6 +29,7 @@ A collection of algorithms.
 26. cooley-tukey fft and inverse fft
 27. basic and extended s-expression parsers
 28. knuth-morris-pratt (KMP) pattern-matching; shortest repeating sub-pattern (SRSP) in linear time
+29. fast walsh-hadamard transform and hard-coded inverse transform
 
 \*: tree is for 2-dimensional objects
 
