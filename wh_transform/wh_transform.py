@@ -1,3 +1,9 @@
+# 2017-07-27
+
+# added turning of frequency domain dot product to time domain dot product
+
+# use parseval's theorem
+
 # 2017-07-07
 
 # fast walsh-hadamard transform and hard-coded inverse transform
@@ -17,6 +23,35 @@ signal2 = [1, 0, 0, 0, 0, 0, 0, 0]
 # signal = [0, 0, 1, 1, 0, 0, 1, 20]
 
 # product is 3 * 20 = 60 = 111100_2 = 4 + 8 + 16 + 32 = 12 + 48 = 60
+
+signal1 = [1, 1, 0, 0, 1, 1, 1, 0]
+
+signal2 = [1, 1, 0, 0, 0, 1, 1, 1]
+
+def dotProduct(a, b):
+  a_list = list(a)
+  b_list = list(b)
+  num_terms = len(a_list)
+  result = sum([a_list[i] * b_list[i] for i in xrange(num_terms)])
+  return result
+
+def scaleVector(v, k):
+  v_list = list(v)
+  next_v_list = [x * k for x in v_list]
+  next_v = tuple(next_v_list)
+  return next_v
+
+def doComponentWiseMultiplication(a, b):
+  a_list = list(a)
+  b_list = list(b)
+  num_terms = len(a_list)
+  result = [a_list[i] * b_list[i] for i in xrange(num_terms)]
+  next_result = tuple(result)
+  return next_result
+
+value1 = dotProduct(signal1, signal2)
+
+print "dot product in time domain:", value1
 
 def getNextLayer(signal):
 
@@ -81,30 +116,19 @@ coefficient = 1 / (1.0 * 2 ** (1.0 * 3))
 
 print "inverse hadamard matrix coefficient:", coefficient
 
-def dotProduct(a, b):
-  a_list = list(a)
-  b_list = list(b)
-  num_terms = len(a_list)
-  result = sum([a_list[i] * b_list[i] for i in xrange(num_terms)])
-  return result
-
-def scaleVector(v, k):
-  v_list = list(v)
-  next_v_list = [x * k for x in v_list]
-  next_v = tuple(next_v_list)
-  return next_v
-
-def doComponentWiseMultiplication(a, b):
-  a_list = list(a)
-  b_list = list(b)
-  num_terms = len(a_list)
-  result = [a_list[i] * b_list[i] for i in xrange(num_terms)]
-  next_result = tuple(result)
-  return next_result
-
 print "walsh signal #1:", layers1[3]
 
 print "walsh signal #2:", layers2[3]
+
+value2 = dotProduct(layers1[3], layers2[3])
+
+print "dot product in frequency domain:", value2
+
+n = len(signal1)
+
+value3 = value2 / (1.0 * n)
+
+print "dot product in frequency domain rescaled:", value3
 
 convolved_fd_signal = list(doComponentWiseMultiplication(layers1[3], layers2[3]))
 
