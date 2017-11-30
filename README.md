@@ -26,10 +26,11 @@ A collection of algorithms.
 23. bundle #1 - red-black tree
 24. bundle #1 - 1-d segment tree
 25. bundle #1 - 2-d segment tree with rectangle segments
-26. cooley-tukey fft and inverse fft
+26. cooley-tukey FFT (i.e. using complex arithmetic)
 27. basic and extended s-expression parsers
 28. knuth-morris-pratt (KMP) pattern-matching; shortest repeating sub-pattern (SRSP) in linear time
 29. fast walsh-hadamard transform and hard-coded inverse transform
+30. number theoretic transform (NTT) flavor of FFT (i.e. using modular arithmetic)
 
 \*: tree is for 2-dimensional objects
 

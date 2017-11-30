@@ -19,7 +19,7 @@ def omega(p, q):
 
 def fft(signal):
   n = len(signal)
-  if n == 1:
+  if n <= 1:
     return signal
   else:
     F_even = fft([signal[i] for i in xrange(0, n, 2)])
