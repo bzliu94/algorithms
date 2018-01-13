@@ -1,3 +1,10 @@
+# 2018-01-12
+
+# modified example code
+
+# we note that due to bertrand postulate, close prime is guaranteed to exist 
+# and, as a result, we have good time overall for ntt
+
 # 2017-11-28
 
 # converted fft from cooley-tukey (via jeremy kun) to ntt
@@ -193,11 +200,21 @@ signal1 = [4, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
 signal2 = [6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
+# signal1 = [4, 1, 4, 2, 1, 3, 5, 6]
+
+# signal2 = [6, 1, 8, 0, 3, 3, 9, 8]
+
+# signal1 = [9, 9, 9, 9, 9, 9, 9, 9]
+
+# signal2 = [9, 9, 9, 9, 9, 9, 9, 9]
+
 print "t.d. signal #1:", signal1
 
 print "t.d. signal #2:", signal2
 
 min_mod = 10 ** 2 * 32 + 1
+
+# min_mod = 9 ** 2 * 8 + 1
 
 MOD = findModulus(len(signal1), min_mod)
 
