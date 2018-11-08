@@ -31,6 +31,7 @@ A collection of algorithms.
 28. knuth-morris-pratt (KMP) pattern-matching; shortest repeating sub-pattern (SRSP) in linear time
 29. fast walsh-hadamard transform and hard-coded inverse transform
 30. number theoretic transform (NTT) flavor of FFT (i.e. using modular arithmetic)
+31. prim-jarnik MST algorithm
 
 \*: tree is for 2-dimensional objects
 
