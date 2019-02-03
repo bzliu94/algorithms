@@ -32,6 +32,7 @@ A collection of algorithms.
 29. fast walsh-hadamard transform and hard-coded inverse transform
 30. number theoretic transform (NTT) flavor of FFT (i.e. using modular arithmetic)
 31. prim-jarnik MST algorithm
+32. disjoint set union-find data structure with union-by-size and path compression
 
 \*: tree is for 2-dimensional objects
 
