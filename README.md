@@ -33,6 +33,8 @@ A collection of algorithms.
 30. number theoretic transform (NTT) flavor of FFT (i.e. using modular arithmetic)
 31. prim-jarnik MST algorithm
 32. disjoint set union-find data structure with union-by-size and path compression
+33. LCA algorithm from bender and farach-colton
+34. SCC algorithm from kosaraju and sharir
 
 \*: tree is for 2-dimensional objects
 
