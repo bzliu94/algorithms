@@ -38,6 +38,9 @@ class SCC_KS:
         self.dfs2(self.gr[v][i])
 
   def scc(self):
+
+    result = []
+
     n = self.n
 
     adj = self.adj
@@ -60,10 +63,18 @@ class SCC_KS:
       v = self.order[n - 1 - i]
       if self.used[v] != True:
         self.dfs2(v)
-        print self.component
+        # print self.component
+        result.append(self.component)
         self.component = []
+    return result
 
-# print scc(0, [[]])
+"""
+
+scc_ks = SCC_KS(0, [[]])
+
+print scc_ks.scc()
+
+"""
 
 """
 
@@ -81,7 +92,9 @@ adj[7] = [4, 6, 7]
 
 scc_ks = SCC_KS(n, adj)
 
-scc_ks.scc()
+result = scc_ks.scc()
+
+print result
 
 # expected results (with zero-indexing):
 # component #1: 0, 1, 2
