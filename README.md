@@ -36,6 +36,7 @@ A collection of algorithms.
 33. LCA algorithm from bender and farach-colton
 34. SCC algorithm from kosaraju and sharir
 35. flow-graph intervals and bridges algorithm via tarjan 1976
+36. strongly connected graph strong bridges via italiano et al. 2012
 
 \*: tree is for 2-dimensional objects
 
