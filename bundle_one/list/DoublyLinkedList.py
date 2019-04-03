@@ -18,6 +18,8 @@ class DoublyLinkedList:
     return self.trailer
   def getSize(self):
     return self.size
+  def _setSize(self, size):
+    self.size = size
   def isEmpty(self):
     return self.getSize() == 0
   # add a node before a given node
@@ -81,6 +83,29 @@ class DoublyLinkedList:
     element_str = "".join(element_str_list)
     return element_str
   """
+  # this is destructive and constant-time
+  @staticmethod
+  def concatenate(dll1, dll2):
+    # modify header, trailer, size
+    header1 = dll1._getHeaderSentinel()
+    trailer1 = dll1._getTrailerSentinel()
+    if dll1.getSize() == 0:
+      return dll2
+    elif dll2.getSize() == 0:
+      return dll1
+    else:
+      last_element1 = dll1.getLast()
+      first_element2 = dll2.getFirst()
+      last_element2 = dll2.getLast()
+      last_element1.setNext(first_element2)
+      first_element2.setPrev(last_element1)
+      last_element2.setNext(trailer1)
+      trailer1.setPrev(last_element2)
+      size1 = dll1.getSize()
+      size2 = dll2.getSize()
+      next_size = size1 + size2
+      dll1._setSize(next_size)
+      return dll1
   def toElementList(self):
     return self._toElementListHelper(self._getHeaderSentinel(), [])
   def _toElementListHelper(self, node, partial_element_list):
@@ -101,17 +126,35 @@ class DoublyLinkedList:
       return self._toNodeListHelper(node.getNext(), partial_node_list)
     else:
       return self._toNodeListHelper(node.getNext(), partial_node_list + [node])
-"""
-list = DoublyLinkedList()
-node1 = DoublyLinkedListNode(1, None, None)
-node2 = DoublyLinkedListNode(2, None, None)
-node3 = DoublyLinkedListNode(3, None, None)
-node4 = DoublyLinkedListNode(4, None, None)
-list.addFirst(node1)
-list.addLast(node4)
-list.addBefore(node3, node4)
-list.addAfter(node2, node1)
-print list.toElementList()
-print list._toNodeList()
-print [x.getElement() for x in list._toNodeList()]
-"""
+
+if __name__ == '__main__':
+
+  list1 = DoublyLinkedList()
+  node1 = DoublyLinkedListNode(1, None, None)
+  node2 = DoublyLinkedListNode(2, None, None)
+  node3 = DoublyLinkedListNode(3, None, None)
+  node4 = DoublyLinkedListNode(4, None, None)
+  list1.addFirst(node1)
+  list1.addLast(node4)
+  list1.addBefore(node3, node4)
+  list1.addAfter(node2, node1)
+  print list1.toElementList()
+  print list1._toNodeList()
+  print [x.getElement() for x in list1._toNodeList()]
+
+  list2 = DoublyLinkedList()
+  node5 = DoublyLinkedListNode(5, None, None)
+  list2.addFirst(node5)
+  print list2.toElementList()
+
+  list3 = DoublyLinkedList.concatenate(list2, list1)
+  print list3.toElementList()
+
+  list4 = DoublyLinkedList()
+  node6 = DoublyLinkedListNode(6, None, None)
+  list4.addFirst(node6)
+  list5 = DoublyLinkedList()
+  list6 = DoublyLinkedList.concatenate(list4, list5)
+  print list6.toElementList()
+
+
