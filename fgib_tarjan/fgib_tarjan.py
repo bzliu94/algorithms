@@ -17,10 +17,8 @@
 
 # RPO is used to guarantee that for cross edges (v, w), we always have v < w
 
-# RPO is required (in contrast with regular pre-order) 
-# for INTERVALS (unless we clone cross edges (v, w) 
-# with v > w and label these clones cycle edges) 
-# and for BRIDGES (for non-tree edge step)
+# RPO is not required (i.e. as long as we use regular pre-order) 
+# for INTERVALS, but it is for BRIDGES (for non-tree edge step)
 
 # because we want to in principle always consider cross edges 
 # if they end at correct node, we choose a numbering scheme 
