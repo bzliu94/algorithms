@@ -1,3 +1,7 @@
+# 2019-04-06
+
+# fixed a tree edge parent bug
+
 # 2019-03-29
 
 # standard DSU structure is ready to be swapped out 
@@ -640,10 +644,10 @@ def prepareGraph(g, start_vertex):
     g_origin, g_destination = edge.getOrigin(), edge.getDestination()
     origin_name, destination_name = g_origin.getName(), g_destination.getName()
     t_origin, t_destination = name_to_tree_vertex_dict[origin_name], name_to_tree_vertex_dict[destination_name]
-    t_destination.setParent(t_origin)
-    tree_edge = TreeEdge(t_origin, t_destination)
-    t.addEdge(tree_edge)
     if edge.isTreeEdge() == True:
+      t_destination.setParent(t_origin)
+      tree_edge = TreeEdge(t_origin, t_destination)
+      t.addEdge(tree_edge)
       t_origin.addChild(t_destination)
   # t._setPreorderNumbers()
   t._setRPOPreorderNumbers()
