@@ -38,6 +38,7 @@ A collection of algorithms.
 35. flow-graph intervals and bridges algorithm via tarjan 1976
 36. strongly connected graph strong bridges via italiano et al. 2012
 37. simple2ecb for 2-edge-connected blocks in strongly connected graphs via georgiadis et al. 2014
+38. dominator tree construction algorithm AD version one via fraczak et al. 2013
 
 \*: tree is for 2-dimensional objects
 
