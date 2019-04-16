@@ -1,6 +1,8 @@
-# 2019-04-07
+# 2019-04-15
 
-# algorithm AD version one from fraczak et al. 2013
+# algorithm GD version one from fraczak et al. 2013
+
+# input: V, A, s
 
 # the implementation is not efficient; the aim is to have correctness to begin with
 
@@ -11,18 +13,21 @@
 
 # we don't use doubly-linked lists yet and use lists with expensive non-destructive concatenation
 
-# input: V, A, s
+# assume input graph is not acyclic and that is directed; 
+# all nodes are reachable from node s
 
 from fgib_tarjan import Vertex, Edge, Tree, TreeVertex, TreeEdge, Graph
-
 # from bundle_one.list.DoublyLinkedList import DoublyLinkedList
 # from bundle_one.list.DoublyLinkedListNode import DoublyLinkedListNode
-
 # from dsuf import NamedUnionFind
-
 from collections import defaultdict
-
 from lca_bfc import LCA_BFC
+
+# loop edge is a special kind of cycle edge
+def isLoopEdge(arc):
+  origin = arc.getOrigin()
+  destination = arc.getDestination()
+  return origin == destination
 
 # assume input graph is flowgraph
 
@@ -38,7 +43,7 @@ CYCLE_EDGE = 1
 CROSS_EDGE = 2
 FORWARD_EDGE = 3
 
-def AD(V, A, g_start_node):
+def GD(V, A, g_start_node):
 
   g = Graph()
   g.addVertices(V)
@@ -47,14 +52,12 @@ def AD(V, A, g_start_node):
   visited = {}
   pre = {}
   post = {}
-  AD.clock = 1
+  GD.clock = 1
   p = {}
   total = {}
   arcs = defaultdict(lambda: [])
 
-  out = {}
   same = {}
-  out_bag = {}
   d = {}
 
   origin_to_arc_dict = defaultdict(lambda: [])
@@ -82,12 +85,12 @@ def AD(V, A, g_start_node):
     explore(g_start_node)
 
   def previsit(v):
-    pre[v] = AD.clock
-    AD.clock += 1
+    pre[v] = GD.clock
+    GD.clock += 1
 
   def postvisit(v):
-    post[v] = AD.clock
-    AD.clock += 1
+    post[v] = GD.clock
+    GD.clock += 1
 
   dfs()
 
@@ -122,8 +125,7 @@ def AD(V, A, g_start_node):
   t._setRPOPreorderNumbers()
   t._setNumberOfDescendants()
 
-  # print t.toPreorderNumberString()
-  # print t.toString()
+  tree_vertices = t.getVertices()
 
   # using graph pre-order/post-order is inappropriate for classifying of edges; 
   # using dfs tree pre-order and post-order is the correct way; 
@@ -179,8 +181,6 @@ def AD(V, A, g_start_node):
     curr_lca_oipn = curr_lca + 1
     lca_to_g_edges_dict[curr_lca_oipn].append(g_edge)
 
-  # print "LCA-based partitioning:", lca_to_g_edges_dict
-
   oipn_to_g_node_dict = {}
 
   for tree_vertex in tree_vertices:
@@ -202,26 +202,24 @@ def AD(V, A, g_start_node):
     total[u] = len(destination_to_arc_dict[u])
     same[u] = [u]
 
-  """
-
-  for edge in A:
-    print edge.getEdgeTypeString(), edge.getOrigin().getName(), edge.getDestination().getName()
-
-  """
-
   t_num_to_g_node = {}
   for tree_vertex in tree_vertices:
     g_node = g.getVertexByName(tree_vertex.getName())
     t_num = tree_vertex.getPreorderNumber()
     t_num_to_g_node[t_num] = g_node
 
+  # since we have transitory tree edges, we make a copy 
+  # so that we still have access to original tree edges
   next_A = A[ : ]
 
   marked = defaultdict(lambda: False)
   old_marked = defaultdict(lambda: False)
 
+  # we do not assume no in-edges into start node
+
   for u_num in reversed(xrange(1, num_nodes + 1)):
     u = t_num_to_g_node[u_num]
+    # we're for the moment considering tree edge as a special kind of forward edge
     candidate_arcs = [x for x in next_A if (x.isTreeEdge() == True or x.isForwardEdge() == True) and x.getOrigin() == u and marked[x] == False]
     while len(candidate_arcs) != 0:
       arc = candidate_arcs.pop()
@@ -234,41 +232,129 @@ def AD(V, A, g_start_node):
           for w in same[v]:
             d[w] = u
         else:
-          same[p[v]] = same[p[v]] + same[v]
+          same[p[v]] = list(set(same[p[v]] + same[v]))
         # contract v into p(v)
-        arcs_with_v_as_origin = [x for x in next_A if x.getOrigin() == v]
-        arcs_with_v_as_destination = [x for x in next_A if x.getDestination() == v]
-        for arc_to_remove in arcs_with_v_as_origin + arcs_with_v_as_destination:
+        # update parent function
+        for curr_child, curr_parent in p.items():
+          if curr_parent == v:
+            p[curr_child] = p[v]
+        arcs_with_v_as_origin = [x for x in next_A if x.getOrigin() == v and x.getOrigin() != x.getDestination()]
+        arcs_with_v_as_destination = [x for x in next_A if x.getDestination() == v and x.getOrigin() != x.getDestination()]
+        arcs_with_v_as_o_and_d = [x for x in next_A if x.getOrigin() == v and x.getDestination() == v]
+        for arc_to_remove in arcs_with_v_as_origin + arcs_with_v_as_destination + arcs_with_v_as_o_and_d:
           # there is interaction between marking logic here and when we create new edges below
           old_marked[arc_to_remove] = marked[arc_to_remove]
           marked[arc_to_remove] = True
+          # if a node is removed, so are edges associated with it
+          if arc_to_remove in next_A:
+            next_A.remove(arc_to_remove)
         modified_arcs1 = []
         modified_arcs2 = []
+        modified_arcs3 = []
         for curr_arc in arcs_with_v_as_origin:
           next_arc = Edge(p[v], curr_arc.getDestination())
-          if next_arc.getOrigin() != next_arc.getDestination():
-            # we're being sloppy with distinguishing between tree and forward edge
+          if next_arc.getOrigin() == next_arc.getDestination():
+            next_arc.setIsCycleEdge()
+          elif p[v] == p[curr_arc.getDestination()]:
+            next_arc.setIsTreeEdge()
+          else:
             next_arc.setIsForwardEdge()
-            if old_marked[curr_arc] == True:
-              marked[next_arc] = True
-            modified_arcs1.append(next_arc)
+          if old_marked[curr_arc] == True:
+            marked[next_arc] = True
+          modified_arcs1.append(next_arc)
         for curr_arc in arcs_with_v_as_destination:
           next_arc = Edge(curr_arc.getOrigin(), p[v])
-          if next_arc.getOrigin() != next_arc.getDestination():
-            # we're being sloppy with distinguishing between tree and forward edge
+          if next_arc.getOrigin() == next_arc.getDestination():
+            next_arc.setIsCycleEdge()
+          elif curr_arc.getOrigin() == p[p[v]]:
+            next_arc.setIsTreeEdge()
+          else:
             next_arc.setIsForwardEdge()
-            if marked[curr_arc] == True:
-              marked[next_arc] = True
-            modified_arcs2.append(next_arc)
+          if old_marked[curr_arc] == True:
+            marked[next_arc] = True
+          modified_arcs2.append(next_arc)
+        for curr_arc in arcs_with_v_as_o_and_d:
+          next_arc = Edge(p[v], p[v])
+          next_arc.setIsCycleEdge()
+          if old_marked[curr_arc] == True:
+            marked[next_arc] = True
+          modified_arcs3.append(next_arc)
         candidate_arcs.extend([x for x in modified_arcs1 if x.getOrigin() == u and marked[x] == False])
         candidate_arcs.extend([x for x in modified_arcs2 if x.getOrigin() == u and marked[x] == False])
         # may not be necessary
         next_A.extend(modified_arcs1)
         next_A.extend(modified_arcs2)
+        next_A.extend(modified_arcs3)
+    # we must make sure we are isolating cycle or loop edges
+    next_candidate_arcs = [x for x in next_A if (x.isCycleEdge() == True or isLoopEdge(x) == True) and x.getDestination() == u]
+    while len(next_candidate_arcs) != 0:
+      arc = next_candidate_arcs.pop()
+      v = arc.getOrigin()
+      if v == u:
+        marked[arc] = True
+      else:
+        same[u] = list(set(same[u] + same[v]))
+        # 0. revise arcs
+        tree_vertex = t.getVertexByName(u.getName())
+        tree_descendants = tree_vertex.getSubtreeTreeNodes()
+        g_descendants = [g.getVertexByName(x.getName()) for x in tree_descendants]
+        g_proper_descendants = [x for x in g_descendants if x != u]
+        g_next_descendants = [x for x in g_proper_descendants if x != v and x != p[v]]
+        for g_curr_descendant in g_next_descendants:
+          existing_arcs = [x for x in next_A if x.getOrigin() == v and x.getDestination() == g_curr_descendant]
+          for curr_existing_arc in existing_arcs:
+            next_A.remove(curr_existing_arc)
+          if len(existing_arcs) == 0:
+            continue
+          next_arc = Edge(p[u], g_curr_descendant)
+          if next_arc.getDestination() == u and (next_arc.isCycleEdge() == True or isLoopEdge(next_arc) == True) == True:
+            next_candidate_arcs.append(next_arc)
+          next_A.append(next_arc)
+        # 1. contract v into p(v)
+        # update parent function
+        for curr_child, curr_parent in p.items():
+          if curr_parent == v:
+            p[curr_child] = p[v]
+        arcs_with_v_as_origin = [x for x in next_A if x.getOrigin() == v and x.getOrigin() != x.getDestination()]
+        arcs_with_v_as_destination = [x for x in next_A if x.getDestination() == v and x.getOrigin() != x.getDestination()]
+        arcs_with_v_as_o_and_d = [x for x in next_A if x.getOrigin() == v and x.getDestination() == v]
+        for arc_to_remove in arcs_with_v_as_origin + arcs_with_v_as_destination + arcs_with_v_as_o_and_d:
+          old_marked[arc_to_remove] = marked[arc_to_remove]
+          marked[arc_to_remove] = True
+          if arc_to_remove in next_A:
+            next_A.remove(arc_to_remove)
+        modified_arcs1 = []
+        modified_arcs2 = []
+        modified_arcs3 = []
+        for curr_arc in arcs_with_v_as_origin:
+          next_arc = Edge(p[v], curr_arc.getDestination())
+          next_arc.setIsCycleEdge()
+          if old_marked[curr_arc] == True:
+            marked[next_arc] = True
+          modified_arcs1.append(next_arc)
+        for curr_arc in arcs_with_v_as_destination:
+          next_arc = Edge(curr_arc.getOrigin(), p[v])
+          next_arc.setIsCycleEdge()
+          if old_marked[curr_arc] == True:
+            marked[next_arc] = True
+          modified_arcs2.append(next_arc)
+        for curr_arc in arcs_with_v_as_o_and_d:
+          next_arc = Edge(p[v], p[v])
+          next_arc.setIsCycleEdge()
+          if old_marked[curr_arc] == True:
+            marked[next_arc] = True
+          modified_arcs3.append(next_arc)
+        for curr_arc in modified_arcs1 + modified_arcs2 + modified_arcs3:
+          if (curr_arc.isCycleEdge() == True or isLoopEdge(curr_arc) == True) and curr_arc.getDestination() == u:
+            next_candidate_arcs.append(curr_arc)
+          # may not be necessary
+          next_A.append(curr_arc)
 
   return d
 
 if __name__ == '__main__':
+
+  """
 
   # example is from page eight from fraczak et al. 2013
 
@@ -300,11 +386,45 @@ if __name__ == '__main__':
   # answer is:
   # (f, b), (c, b), (d, b), (g, s), (e, s), (a, s)
 
-  result = AD(vertices, edges, v8)
+  """
+
+  # example is from page two from fraczak et al. 2013
+
+  v1 = Vertex("a")
+  v2 = Vertex("b")
+  v3 = Vertex("c")
+  v4 = Vertex("d")
+  v5 = Vertex("e")
+  v6 = Vertex("f")
+  v7 = Vertex("g")
+  v8 = Vertex("s")
+
+  vertices = [v1, v2, v3, v4, v5, v6, v7, v8]
+
+  e1 = Edge(v8, v1)
+  e2 = Edge(v8, v2)
+  e3 = Edge(v8, v4)
+  e4 = Edge(v1, v5)
+  e5 = Edge(v2, v3)
+  e6 = Edge(v2, v6)
+  e7 = Edge(v3, v1)
+  e8 = Edge(v3, v4)
+  e9 = Edge(v4, v2)
+  e10 = Edge(v5, v7)
+  e11 = Edge(v6, v3)
+  e12 = Edge(v6, v4)
+  e13 = Edge(v6, v7)
+  e14 = Edge(v7, v1)
+  e15 = Edge(v7, v4)
+
+  edges = [e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15]
+
+  # answer is:
+  # (f, b), (c, b), (e, a), (b, s), (d, s), (g, s), (a, s)
+
+  result = GD(vertices, edges, v8)
 
   d = result
-
-  # print d
 
   for d_item in d.items():
     curr_node, curr_parent = d_item

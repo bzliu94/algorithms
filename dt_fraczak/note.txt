@@ -1,4 +1,12 @@
-lca_bfc, fgib_tarjan packages can be found in algorithms repository
+lca_bfc, dsuf, fgib_tarjan packages can be found in algorithms repository
+
+--
+
+AD1 and GD1 are theoretical
+
+AD2, AD3, GD3, and HD are complete except without doubly-linked lists (i.e. we have expensive concatenation)
+
+only GD2 is optimized (i.e. it uses doubly-linked lists)
 
 --
 
