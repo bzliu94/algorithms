@@ -101,7 +101,9 @@ def GD(V, A, g_start_node):
     o_post = post[origin]
     d_pre = pre[destination]
     d_post = post[destination]
-    if origin == p[destination]:
+    if destination == g_start_node:
+      continue
+    elif origin == p[destination]:
       edge.setIsTreeEdge()
 
   t = Tree()
