@@ -1,3 +1,11 @@
+# 2019-05-21
+
+# made a change given that it turns out 
+# we needed to make explicit all input lists 
+# (i.e. we should be careful with defaultdict collections) 
+# because length could be wrong, which could 
+# lead to incorrect results
+
 # 2019-02-04
 
 # SCC algorithm from kosaraju and sharir
@@ -44,7 +52,8 @@ class SCC_KS:
     n = self.n
 
     adj = self.adj
-    for i in xrange(len(adj)):
+    # n is used instead of len(adj)
+    for i in xrange(n):
       a = i
       for j in xrange(len(adj[i])):
         b = adj[i][j]
@@ -68,42 +77,72 @@ class SCC_KS:
         self.component = []
     return result
 
-"""
+if __name__ == '__main__':
 
-scc_ks = SCC_KS(0, [[]])
+  """
 
-print scc_ks.scc()
+  scc_ks = SCC_KS(0, [[]])
 
-"""
+  print scc_ks.scc()
 
-"""
+  """
 
-n = 8
+  """
 
-adj = defaultdict(lambda: [])
-adj[0] = [1]
-adj[1] = [2]
-adj[2] = [0]
-adj[3] = [1, 2, 4]
-adj[4] = [3, 5]
-adj[5] = [2, 6]
-adj[6] = [5]
-adj[7] = [4, 6, 7]
+  n = 8
 
-scc_ks = SCC_KS(n, adj)
+  adj = defaultdict(lambda: [])
+  adj[0] = [1]
+  adj[1] = [2]
+  adj[2] = [0]
+  adj[3] = [1, 2, 4]
+  adj[4] = [3, 5]
+  adj[5] = [2, 6]
+  adj[6] = [5]
+  adj[7] = [4, 6, 7]
 
-result = scc_ks.scc()
+  scc_ks = SCC_KS(n, adj)
 
-print result
+  result = scc_ks.scc()
 
-# expected results (with zero-indexing):
-# component #1: 0, 1, 2
-# component #2: 5, 6
-# component #3: 3, 4
-# component #4: 7
+  print result
 
-# expected result is the above, but reversed
+  # expected results (with zero-indexing):
+  # component #1: 0, 1, 2
+  # component #2: 5, 6
+  # component #3: 3, 4
+  # component #4: 7
 
-"""
+  # expected result is the above, but reversed
+
+  """
+
+  n = 9
+
+  adj = defaultdict(lambda: [])
+  adj[0] = [] # if this is made non-explicit, earlier revisions lead to different (erroneous) answer
+  adj[1] = [0, 4]
+  adj[2] = [0, 1, 3, 4]
+  adj[3] = [2, 4]
+  adj[4] = [2, 3, 8, 7]
+  adj[5] = [3, 8]
+  adj[6] = [5, 7]
+  adj[7] = [4, 6, 8]
+  adj[8] = [4, 5, 7]
+
+  scc_ks = SCC_KS(n, adj)
+
+  result = scc_ks.scc()
+
+  print result
+
+  # bad results (with zero-indexing) would be:
+  # component #1: 1, 2, 3, 4, 7, 6, 5
+  # component #2: 8
+  # component #3: 0
+
+  # expected results (with zero-indexing):
+  # component #1: 1, 2, 3, 4, 7, 6, 8, 5
+  # component #2: 0
 
 

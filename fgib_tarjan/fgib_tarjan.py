@@ -101,6 +101,8 @@ class Graph:
   # we assume each node has a unique name
   def getVertexByName(self, name):
     return self.name_to_vertex[name]
+  def haveVertexWithName(self, name):
+    return name in self.name_to_vertex
 
 TREE_EDGE = 0
 CYCLE_EDGE = 1
@@ -148,6 +150,8 @@ class Edge:
       return "cross"
     elif self.isForwardEdge() == True:
       return "forward"
+    else:
+      raise Exception()
   def toString(self):
     return "(" + self.getOrigin().toString() + ", " + self.getDestination().toString() + ")"
   def toOIPNString(self, t):
@@ -223,7 +227,10 @@ class Tree:
     self.vertices = []
     self.edges = []
     self.name_to_vertex = {}
+    # pre-order
     self.oipn_to_vertex_dict = {}
+    # post-order
+    self.oipostn_to_vertex_dict = {}
   def getRoot(self):
     return self.root
   def setRoot(self, node):
@@ -235,6 +242,13 @@ class Tree:
   def _setPreorderNumbersHelper(self, vertex):
     oipn = vertex.getPreorderNumber()
     self.oipn_to_vertex_dict[oipn] = vertex
+  def _setPostorderNumbers(self):
+    root = self.getRoot()
+    clock = Clock(1)
+    root._setPostorderNumbers(clock, self)
+  def _setPostorderNumbersHelper(self, vertex):
+    oipn = vertex.getPostorderNumber()
+    self.oipostn_to_vertex_dict[oipn] = vertex
   def _setRPOPreorderNumbersHelper(self, vertex):
     oipn = vertex.getPreorderNumber()
     self.oipn_to_vertex_dict[oipn] = vertex
@@ -259,16 +273,21 @@ class Tree:
     self.vertices.append(tree_vertex)
     name = tree_vertex.getName()
     self.name_to_vertex[name] = tree_vertex
+  def addVertices(self, tree_vertices):
+    for tree_vertex in tree_vertices:
+      self.addVertex(tree_vertex)
   def getVertices(self):
     return self.vertices
   def addEdge(self, tree_edge):
     self.edges.append(tree_edge)
+  def addEdges(self, tree_edges):
+    for tree_edge in tree_edges:
+      self.addEdge(tree_edge)
   def getEdges(self):
     return self.edges
   # we assume each node has a unique name
   def getVertexByName(self, name):
     return self.name_to_vertex[name]
-  # we deal with one-indexed pre-order numbers
   def getVertexByOIPN(self, oipn):
     return self.oipn_to_vertex_dict[oipn]
   def toString(self):
@@ -277,9 +296,16 @@ class Tree:
   def toPreorderNumberString(self):
     root = self.getRoot()
     return root.toString(lambda x: x.getPreorderNumber())
+  def toPostorderNumberString(self):
+    root = self.getRoot()
+    return root.toString(lambda x: x.getPostorderNumber())
   def toNDString(self):
     root = self.getRoot()
     return root.toString(lambda x: x.getNumberOfDescendants())
+  def getPreorderNodes(self):
+    root = self.getRoot()
+    result = root.getSubtreeTreeNodes()
+    return result
 
 class TreeVertex():
   def __init__(self, name):
@@ -287,6 +313,7 @@ class TreeVertex():
     self.parent = None
     self.children = []
     self.pre = None
+    self.post = None
   def getName(self):
     return self.name
   def setParent(self, node):
@@ -305,6 +332,10 @@ class TreeVertex():
     self.pre = value
   def getPreorderNumber(self):
     return self.pre
+  def setPostorderNumber(self, value):
+    self.post = value
+  def getPostorderNumber(self):
+    return self.post
   def _setPreorderNumbers(self, clock, tree):
     self.setPreorderNumber(clock.getValue())
     tree._setPreorderNumbersHelper(self)
@@ -312,6 +343,13 @@ class TreeVertex():
     children = self.getChildren()
     for child in children:
       child._setPreorderNumbers(clock, tree)
+  def _setPostorderNumbers(self, clock, tree):
+    tree._setPostorderNumbersHelper(self)
+    children = self.getChildren()
+    for child in children:
+      child._setPostorderNumbers(clock, tree)
+    self.setPostorderNumber(clock.getValue())
+    clock.increment()
   def _setRPOPreorderNumbers(self, po_nodes_out):
     children = self.getChildren()
     for child in children:
@@ -338,10 +376,20 @@ class TreeVertex():
     children = self.getChildren()
     curr_str = None
     if self.haveChildren() == False:
-      curr_str = str(value_fn(self))
+      curr_str = "(" + str(value_fn(self)) + ")"
     else:
       curr_str = "(" + str(value_fn(self)) + " " + reduce(lambda x, y: x + " " + y, [x.toString(value_fn) for x in children]) + ")"
     return curr_str
+  # is pre-order
+  def getSubtreeTreeNodes(self):
+    result = []
+    self._getSubtreeTreeNodesHelper(result)
+    return result
+  def _getSubtreeTreeNodesHelper(self, result):
+    children = self.getChildren()
+    result.append(self)
+    for child in children:
+      child._getSubtreeTreeNodesHelper(result)
 
 class TreeEdge(Edge):
   def __init__(self, origin, destination):
