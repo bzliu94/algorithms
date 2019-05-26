@@ -23,11 +23,8 @@
 # running time is O(|V| ^ 3 * alpha(|V|, |E|)) assuming use of standard DSU structure
 
 from fgib_tarjan import Vertex, Edge
-
 from sb_italiano import doStrongBridges
-
 from scc_ks import SCC_KS
-
 from collections import defaultdict
 
 def doSimple2ECB(V, E):
