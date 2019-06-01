@@ -1,3 +1,7 @@
+# 2019-06-01
+
+# fixed problem with step 3.2 being time in O(m * n) instead of O(m)
+
 # 2019-05-20
 
 # we have a bug s.t. we have unexpected behavior with SCC 
@@ -59,12 +63,22 @@ def doSimple2ECB(V, E):
       next_components.append(next_component)
     # step 3.2
     next_blocks = []
-    for curr_2ecb in curr_blocks:
-      for curr_scc in next_components:
-        # do intersection
-        intersection_vertex_list = list(set(curr_2ecb) & set(curr_scc))
-        if len(intersection_vertex_list) != 0:
-          next_blocks.append(intersection_vertex_list)
+    label_num_to_component_dict = defaultdict(lambda: [])
+    vertex_to_label_num_dict = {}
+    for i in xrange(len(next_components)):
+      label_num = i
+      curr_next_component = next_components[i]
+      label_num_to_component_dict[label_num] = curr_next_component
+      curr_vertices = curr_next_component
+      for curr_vertex in curr_vertices:
+        vertex_to_label_num_dict[curr_vertex] = label_num
+    for curr_block in curr_blocks:
+      label_num_to_vertices_dict = defaultdict(lambda: [])
+      for curr_vertex in curr_block:
+        curr_label_num = vertex_to_label_num_dict[curr_vertex]
+        label_num_to_vertices_dict[curr_label_num].append(curr_vertex)
+      for curr_group in label_num_to_vertices_dict.values():
+        next_blocks.append(curr_group)
     curr_blocks = next_blocks
   return curr_blocks
 
