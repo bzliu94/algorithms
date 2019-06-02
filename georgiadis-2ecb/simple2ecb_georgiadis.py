@@ -24,7 +24,7 @@
 # and so we give each node a chance by introducing it 
 # at least via a singleton set
 
-# running time is O(|V| ^ 3 * alpha(|V|, |E|)) assuming use of standard DSU structure
+# time is O(m * n * alpha), assuming use of standard DSU structure
 
 from fgib_tarjan import Vertex, Edge
 from sb_italiano import doStrongBridges
