@@ -1,3 +1,7 @@
+# 2019-06-22
+
+# fix bug with shortcut case b s.t. way we use bucket sort is fast enough
+
 # 2019-05-25
 
 # addressing difference between overall and local ordinary vertex/edge
@@ -30,7 +34,6 @@
 
 from fgib_tarjan import Graph, Vertex, Edge, addDummyNode, prepareGraph, doIntervals, doBridges, Tree, TreeVertex, TreeEdge
 from sb_italiano import doStrongBridges, ReversedEdge
-from scc_ks import SCC_KS
 from collections import defaultdict
 from dt_fraczak_GD2_faster import GD
 
@@ -921,6 +924,14 @@ def doRec2ECBHelper(V, E):
       if dest.getName() == origin.getName():
         continue
       auxiliary_subgraph_to_cs2_source_edges_dict[dest_subgraph].append(edge)
+    # these five dictionaries below are for shortcut case b
+    subtree_G_to_shiny_edges_dict = {}
+    subtree_G_to_input_sec_list_dict = {}
+    subtree_G_to_input_cobv_list_dict = {}
+    # output is expected to be sorted
+    subtree_G_to_output_sec_list_dict = defaultdict(lambda: [])
+    # output is expected to be sorted
+    subtree_G_to_output_cobv_list_dict = defaultdict(lambda: [])
     for subtree_root, curr_subtree_G, subtree_node_group in augmented_subtree_graphs:
       base_edges = curr_subtree_G.getEdges()[ : ]
       shiny_edges = []
@@ -994,12 +1005,42 @@ def doRec2ECBHelper(V, E):
           if curr_subtree_G.haveVertexWithName(old_dest.getName()) == True:
             if curr_subtree_G.getVertexByName(old_dest.getName()).isLocalOrdinary() == True:
               source_edge_candidates.append(edge)
+      children_of_boundary_vertices = DSTree.getChildrenOfBoundaryVertices(subtree_node_group)
+      subtree_G_to_shiny_edges_dict[curr_subtree_G] = shiny_edges
+      subtree_G_to_input_sec_list_dict[curr_subtree_G] = source_edge_candidates
+      subtree_G_to_input_cobv_list_dict[curr_subtree_G] = children_of_boundary_vertices
+    # handle shortcut case b all at once via merge, bucket sort, unmerge
+    combined_sec_list = []
+    combined_cobv_list = []
+    sec_to_subtree_graphs_dict = defaultdict(lambda: [])
+    cobv_to_subtree_graphs_dict = defaultdict(lambda: [])
+    for curr_subtree_G in [x[1] for x in augmented_subtree_graphs]:
+      curr_sec_list = subtree_G_to_input_sec_list_dict[curr_subtree_G]
+      curr_cobv_list = subtree_G_to_input_cobv_list_dict[curr_subtree_G]
+      # we assume extend for operand with length k takes time O(k)
+      combined_sec_list.extend(curr_sec_list)
+      combined_cobv_list.extend(curr_cobv_list)
+      for curr_sec in curr_sec_list:
+        sec_to_subtree_graphs_dict[curr_sec].append(curr_subtree_G)
+      for curr_cobv in curr_cobv_list:
+        cobv_to_subtree_graphs_dict[curr_cobv].append(curr_subtree_G)
+    sec_list_sorted = bucketSort(combined_sec_list, 1, len(source_V), lambda x: source_subtree.getVertexByName(x.getOrigin().getName()).getPreorderNumber())
+    cobv_list_sorted = bucketSort(combined_cobv_list, 1, len(source_V), lambda x: source_subtree.getVertexByName(x.getName()).getPreorderNumber())
+    for curr_sec in sec_list_sorted:
+      curr_subtree_graphs = sec_to_subtree_graphs_dict[curr_sec]
+      for curr_subtree_G in curr_subtree_graphs:
+        subtree_G_to_output_sec_list_dict[curr_subtree_G].append(curr_sec)
+    for curr_cobv in cobv_list_sorted:
+      curr_subtree_graphs = cobv_to_subtree_graphs_dict[curr_cobv]
+      for curr_subtree_G in curr_subtree_graphs:
+        subtree_G_to_output_cobv_list_dict[curr_subtree_G].append(curr_cobv)
+    for subtree_root, curr_subtree_G, subtree_node_group in augmented_subtree_graphs:
       # source_edge_candidates is our B_r; 
       # we are prepared to determine shortcut-related case b edge
-      source_edge_candidates_sorted = bucketSort(source_edge_candidates, 1, len(source_V), lambda x: source_subtree.getVertexByName(x.getOrigin().getName()).getPreorderNumber())
+      source_edge_candidates_sorted = subtree_G_to_output_sec_list_dict[curr_subtree_G]
       # this is for (B_r)'; this has to be for us to collect nodes from current subtree
-      children_of_boundary_vertices = DSTree.getChildrenOfBoundaryVertices(subtree_node_group)
-      children_of_boundary_vertices_sorted = bucketSort(children_of_boundary_vertices, 1, len(source_V), lambda x: source_subtree.getVertexByName(x.getName()).getPreorderNumber())
+      children_of_boundary_vertices_sorted = subtree_G_to_output_cobv_list_dict[curr_subtree_G]
+      shiny_edges = subtree_G_to_shiny_edges_dict[curr_subtree_G]
       # s.e.c.'s is source edge candidates
       augmented_secs = [(x, source_subtree.getVertexByName(x.getOrigin().getName()).getPreorderNumber()) for x in source_edge_candidates_sorted]
       # c.o.b.v.'s is children of boundary vertices
@@ -1082,47 +1123,6 @@ def doRec2ECBHelper(V, E):
       curr_result = DoublyLinkedList.concatenate(curr_result, result)
     return curr_result
   return result
-
-def doSimple2ECB(V, E):
-  # step one
-  s = V[0]
-  strong_bridges = doStrongBridges(V, E, s)
-  # step two
-  curr_blocks = [V[ : ]]
-  # step three
-  n = len(V)
-  g_vertex_to_number_dict = {}
-  number_to_g_vertex_dict = {}
-  for i in xrange(len(V)):
-    g_vertex = V[i]
-    g_vertex_to_number_dict[g_vertex] = i
-    number_to_g_vertex_dict[i] = g_vertex
-  for curr_sb in strong_bridges:
-    # step 3.1
-    active_edges = [x for x in E if x != curr_sb]
-    adj = defaultdict(lambda: [])
-    for g_edge in active_edges:
-      origin = g_edge.getOrigin()
-      destination = g_edge.getDestination()
-      origin_num = g_vertex_to_number_dict[origin]
-      destination_num = g_vertex_to_number_dict[destination]
-      adj[origin_num].append(destination_num)
-    scc_ks = SCC_KS(n, adj)
-    components = scc_ks.scc()
-    next_components = []
-    for component in components:
-      next_component = [number_to_g_vertex_dict[x] for x in component]
-      next_components.append(next_component)
-    # step 3.2
-    next_blocks = []
-    for curr_2ecb in curr_blocks:
-      for curr_scc in next_components:
-        # do intersection
-        intersection_vertex_list = list(set(curr_2ecb) & set(curr_scc))
-        if len(intersection_vertex_list) != 0:
-          next_blocks.append(intersection_vertex_list)
-    curr_blocks = next_blocks
-  return curr_blocks
 
 if __name__ == '__main__':
 
