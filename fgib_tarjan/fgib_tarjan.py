@@ -306,6 +306,8 @@ class Tree:
     root = self.getRoot()
     result = root.getSubtreeTreeNodes()
     return result
+  def haveVertexWithName(self, name):
+    return name in self.name_to_vertex
 
 class TreeVertex():
   def __init__(self, name):
