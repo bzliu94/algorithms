@@ -1,4 +1,4 @@
-fgib_tarjan, sap_italiano, scc_ks packages can be found in algorithms repository
+fgib_tarjan, sap_italiano, scc_ks, sb_italiano, dt_fraczak_GD2_faster packages can be found in algorithms repository
 
 --
 

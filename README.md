@@ -43,6 +43,7 @@ A collection of algorithms.
 40. fast2ecb for 2-edge-connected blocks in strongly connected graphs via georgiadis et al. 2014
 41. strongly connected graph strong articulation points via italiano et al. 2012
 42. simplevrb for vertex-resilient blocks in strongly connected graphs via georgiadis et al. 2015
+43. fastvrb for vertex-resilient blocks in strongly connected graphs via georgiadis et al. 2015
 
 \*: tree is for 2-dimensional objects
 
