@@ -1,3 +1,12 @@
+# 2019-07-29
+
+# we remember that we are assuming nodes that do not appear explicitly 
+# in a block for output are effectively in their own output block; 
+# this presumably happens either because of keeping the core algorithm 
+# simple or efficient
+
+# for reverse layer, need to use a specific start node
+
 # 2019-06-27
 
 # had typo s.t. we had curr_cobv, but it should be curr_C3_node; fix shortcut case a because of typo s.t. we had curr_aux_graph and we need curr_aux_G; we should remove self-edges via shortcut case b extended; we need to extend from forward direction to reverse direction; simplevrb needs to use names instead of node objects; removed pass statements; fixed simplevrb-like third layer check to be more relaxed for node status
@@ -18,7 +27,7 @@ from sb_italiano import ReversedEdge
 from collections import defaultdict
 from dt_fraczak_GD2_faster import GD
 
-from simplevrb_georgiadis import doSimpleVRB
+# from simplevrb_georgiadis import doSimpleVRB
 
 # takes time linear in number of items and size of range; 
 # assume buckets are in range [k_l, k_l + 1, k_l + 2, ..., k_r]
@@ -390,10 +399,18 @@ raise Exception()
 
 # vertices must be dominator tree vertices for WBC to handle C1 aspect correctly
 class WrappedBlock:
+  counter = 0
   def __init__(self, vertices):
     self.vertices = vertices
+    # self.oo_vertex_name_set = set([x.getName() for x in vertices if x.isOverallOrdinary() == True])
+    self.id_num = WrappedBlock.counter
+    WrappedBlock.counter += 1
+  def _getID(self):
+    return self.id_num
   def getVertices(self):
     return self.vertices
+  # def getOOVertexNameSet(self):
+  #   return self.oo_vertex_name_set
 
 class WrappedBlockContainer:
   def __init__(self, forward_dominator_tree):
@@ -409,10 +426,10 @@ class WrappedBlockContainer:
     return list(self.wrapped_blocks_set)
   # takes constant time
   def getWrappedBlocksForC1WithVertexRootName(self, name):
-    return self.node_name_to_C1_wrapped_blocks_set_dict[name]
+    return list(self.node_name_to_C1_wrapped_blocks_set_dict[name])
   # takes constant time
   def getWrappedBlocksWithVertexName(self, name):
-    return self.node_name_to_wrapped_blocks_set_dict[name]
+    return list(self.node_name_to_wrapped_blocks_set_dict[name])
   # takes time linear in size of wrapped block
   def removeWrappedBlock(self, wrapped_block):
     self.wrapped_blocks_set.remove(wrapped_block)
@@ -445,13 +462,12 @@ def doFastVRB(V, E):
   # we're not filtering
   result = []
   for wrapped_block in wbc.getWrappedBlocks():
-    curr_vertices = [x for x in wrapped_block.getVertices()]
+    curr_vertices = wrapped_block.getVertices()
     result.append(curr_vertices)
   return result
 
-def doFastVRBReverse(V, E, wbc):
+def doFastVRBReverse(V, E, wbc, start_name):
   # reverse the graph
-  s = V[0]
   # this is for debugging
   # s = [x for x in V if x.getName() == "r"][0]
   next_V = []
@@ -463,40 +479,41 @@ def doFastVRBReverse(V, E, wbc):
       curr_vertex.setIsOverallAuxiliary()
     curr_vertex.setIsLocalOrdinary()
     next_V.append(curr_vertex)
-  name_to_next_vertex = {}
+  name_to_next_vertex_dict = {}
   for vertex in next_V:
     name = vertex.getName()
-    name_to_next_vertex[name] = vertex
+    name_to_next_vertex_dict[name] = vertex
+  s = name_to_next_vertex_dict[start_name]
   next_E = []
   for edge in E:
     curr_origin = edge.getOrigin()
     curr_destination = edge.getDestination()
-    next_origin = name_to_next_vertex[curr_origin.getName()]
-    next_destination = name_to_next_vertex[curr_destination.getName()]
+    next_origin = name_to_next_vertex_dict[curr_origin.getName()]
+    next_destination = name_to_next_vertex_dict[curr_destination.getName()]
     reversed_edge = AOReversedEdge(next_destination, next_origin, edge)
     reversed_edge.setIsLocalOrdinary()
     next_E.append(reversed_edge)
-  next_s = name_to_next_vertex[s.getName()]
+  next_s = name_to_next_vertex_dict[s.getName()]
   # step 3.1 - get reverse dominator tree
-  name_to_old_vertex = {}
+  name_to_old_vertex_dict = {}
   for vertex in V:
     name = vertex.getName()
-    name_to_old_vertex[name] = vertex
+    name_to_old_vertex_dict[name] = vertex
   dt_pairs2 = GD(next_V, next_E, next_s)
   dt2 = DTree()
-  name_to_dt_vertex = {}
+  name_to_dt_vertex_dict = {}
   for curr_vertex in next_V:
     dt_vertex = DTreeVertex(curr_vertex.getName())
     dt_vertex.setIsOverallOrdinary()
     dt_vertex.setIsLocalOrdinary()
-    name_to_dt_vertex[curr_vertex.getName()] = dt_vertex
-  s2 = name_to_dt_vertex[next_s.getName()]
+    name_to_dt_vertex_dict[curr_vertex.getName()] = dt_vertex
+  s2 = name_to_dt_vertex_dict[next_s.getName()]
   dt2.setRoot(s2)
-  dt_vertices2 = name_to_dt_vertex.values()
+  dt_vertices2 = name_to_dt_vertex_dict.values()
   dt_edges2 = []
   for curr_child, curr_parent in dt_pairs2.items():
-    next_child = name_to_dt_vertex[curr_child.getName()]
-    next_parent = name_to_dt_vertex[curr_parent.getName()]
+    next_child = name_to_dt_vertex_dict[curr_child.getName()]
+    next_parent = name_to_dt_vertex_dict[curr_parent.getName()]
     next_parent.addChild(next_child)
     next_child.setParent(next_parent)
     dt_edge = DTreeEdge(next_child, next_parent)
@@ -842,9 +859,13 @@ def doFastVRBReverse(V, E, wbc):
     r_node = curr_aux_G.getVertexByName(ag_root_dt_vertex.getName())
     # found a bug here
     cs2_edges = DTree.collectShortcutCaseBEdges(dt2, C3, next_E, ag_root_dt_vertex, r_node, curr_aux_G)
-    shiny_edges.extend(cs2_edges)
+    # by definition, G_s has no type-b shortcut edges; this was source of a bug
+    if ag_root_dt_vertex.getName() != next_s.getName():
+      shiny_edges.extend(cs2_edges)
     cs2b_edges = aux_graph_to_cs2b_edges_dict[curr_aux_G]
-    shiny_edges.extend(cs2b_edges)
+    # by definition, G_s has no type-b shortcut edges; this was source of a bug
+    if ag_root_dt_vertex.getName() != next_s.getName():
+      shiny_edges.extend(cs2b_edges)
     auxiliary_graph_root_name_pair_list.append((curr_aux_G, ag_root_dt_vertex.getName()))
     seen_edge_str_set = set([])
     next_shiny_edges = []
@@ -862,6 +883,8 @@ def doFastVRBReverse(V, E, wbc):
     aux_graph = root_name_to_aux_graph_dict[curr_dt_node.getName()]
     if curr_dt_node.haveChildren() == False:
       continue
+    # this is mostly safe because name is what matters most; 
+    # overall-ordinary status matters as well, which the replacement items excel at
     curr_result = doSimpleVRBModified(aux_graph.getVertices(), aux_graph.getEdges(), wbc, aux_graph.getVertexByName(curr_dt_node.getName()))
   return wbc
 
@@ -873,19 +896,19 @@ def doFastVRBForward(V, E):
   # s = [x for x in V if x.getName() == "s"][0]
   dt_pairs1 = GD(V, E, s)
   dt1 = DTree()
-  name_to_dt_vertex = {}
+  name_to_dt_vertex_dict = {}
   for curr_vertex in V:
     dt_vertex = DTreeVertex(curr_vertex.getName())
     dt_vertex.setIsOverallOrdinary()
     dt_vertex.setIsLocalOrdinary()
-    name_to_dt_vertex[curr_vertex.getName()] = dt_vertex
-  s1 = name_to_dt_vertex[s.getName()]
+    name_to_dt_vertex_dict[curr_vertex.getName()] = dt_vertex
+  s1 = name_to_dt_vertex_dict[s.getName()]
   dt1.setRoot(s1)
-  dt_vertices1 = name_to_dt_vertex.values()
+  dt_vertices1 = name_to_dt_vertex_dict.values()
   dt_edges1 = []
   for curr_child, curr_parent in dt_pairs1.items():
-    next_child = name_to_dt_vertex[curr_child.getName()]
-    next_parent = name_to_dt_vertex[curr_parent.getName()]
+    next_child = name_to_dt_vertex_dict[curr_child.getName()]
+    next_parent = name_to_dt_vertex_dict[curr_parent.getName()]
     next_parent.addChild(next_child)
     next_child.setParent(next_parent)
     dt_edge = DTreeEdge(next_child, next_parent)
@@ -895,7 +918,7 @@ def doFastVRBForward(V, E):
   dt1.addEdges(dt_edges1)
   dt1._setPreorderNumbers()
   dt1._setNumberOfDescendants()
-  root_node_name_to_C_hat = {}
+  root_node_name_to_C_hat_dict = {}
   for curr_node in dt_vertices1:
     # this is important; for forward layer, requiring that a C-hat's root node be not a leaf means it has at least two overall ordinary nodes for each initial block, which is important because a block may survive until end and not encounter simplevrb modified (i.e. layer three) call
     if curr_node.haveChildren() == False:
@@ -904,9 +927,9 @@ def doFastVRBForward(V, E):
     curr_block = [curr_node]
     for child in children:
       curr_block.append(child)
-    root_node_name_to_C_hat[curr_node.getName()] = curr_block
+    root_node_name_to_C_hat_dict[curr_node.getName()] = curr_block
   wbc = WrappedBlockContainer(dt1)
-  for curr_C_hat in root_node_name_to_C_hat.values():
+  for curr_C_hat in root_node_name_to_C_hat_dict.values():
     curr_wrapped_block = WrappedBlock(curr_C_hat)
     wbc.addWrappedBlock(curr_wrapped_block)
   # step 2 - create auxiliary graph G_r for each node r in forward dominator tree
@@ -1202,9 +1225,13 @@ def doFastVRBForward(V, E):
     shiny_edges = aux_G_to_shiny_edges_again_dict[curr_aux_G]
     r_node = curr_aux_G.getVertexByName(ag_root_dt_vertex.getName())
     cs2_edges = DTree.collectShortcutCaseBEdges(dt1, C3, E, ag_root_dt_vertex, r_node, curr_aux_G)
-    shiny_edges.extend(cs2_edges)
+    # by definition, G_s has no type-b shortcut edges; this was source of a bug
+    if ag_root_dt_vertex.getName() != s.getName():
+      shiny_edges.extend(cs2_edges)
     cs2b_edges = aux_graph_to_cs2b_edges_dict[curr_aux_G]
-    shiny_edges.extend(cs2b_edges)
+    # by definition, G_s has no type-b shortcut edges; this was source of a bug
+    if ag_root_dt_vertex.getName() != s.getName():
+      shiny_edges.extend(cs2b_edges)
     auxiliary_graph_root_name_pair_list.append((curr_aux_G, ag_root_dt_vertex.getName()))
     seen_edge_str_set = set([])
     next_shiny_edges = []
@@ -1223,11 +1250,11 @@ def doFastVRBForward(V, E):
     aux_graph = root_name_to_aux_graph_dict[curr_dt_node.getName()]
     if curr_dt_node.haveChildren() == False:
       continue
-    curr_result = doFastVRBReverse(aux_graph.getVertices(), aux_graph.getEdges(), wbc)
+    curr_result = doFastVRBReverse(aux_graph.getVertices(), aux_graph.getEdges(), wbc, curr_dt_node.getName())
   return wbc
 
 def doSimpleVRBModified(V, E, wbc, sap):
-  # step 3.5.1 -- retrieve blocks from active block set s.t. intersection with V is size contains number of overall ordinary nodes that is >= 2
+  # step 3.5.1 -- retrieve blocks from active block set s.t. intersection with V is s.t. number of overall ordinary nodes in it is >= 2
   # (note -- we do not use single block to start off with -- we use block collection that we retrieve from active block set)
   name_to_vertex_dict = {}
   for v in V:
@@ -1253,11 +1280,11 @@ def doSimpleVRBModified(V, E, wbc, sap):
     curr_blocks.append(curr_block)
   # step "three"
   n = len(V)
-  g_vertex_to_number_dict = {}
+  g_vertex_name_to_number_dict = {}
   number_to_g_vertex_dict = {}
   for i in xrange(len(V)):
     g_vertex = V[i]
-    g_vertex_to_number_dict[g_vertex] = i
+    g_vertex_name_to_number_dict[g_vertex.getName()] = i
     number_to_g_vertex_dict[i] = g_vertex
   for curr_sap in saps:
     # step 3.5.2 -- get SCC's s.t. we have removed single sap
@@ -1265,10 +1292,10 @@ def doSimpleVRBModified(V, E, wbc, sap):
     for g_edge in E:
       origin = g_edge.getOrigin()
       destination = g_edge.getDestination()
-      if origin == curr_sap or destination == curr_sap:
+      if origin.getName() == curr_sap.getName() or destination.getName() == curr_sap.getName():
         continue
-      origin_num = g_vertex_to_number_dict[origin]
-      destination_num = g_vertex_to_number_dict[destination]
+      origin_num = g_vertex_name_to_number_dict[origin.getName()]
+      destination_num = g_vertex_name_to_number_dict[destination.getName()]
       adj[origin_num].append(destination_num)
     scc_ks = SCC_KS(n, adj)
     components = scc_ks.scc()
@@ -1468,6 +1495,8 @@ if __name__ == '__main__':
 
   """
 
+  """
+
   # example from figure three of georgiadis et al. 2015
 
   v_a = AOVertex("a")
@@ -1512,6 +1541,65 @@ if __name__ == '__main__':
     edge.setIsLocalOrdinary()
 
   # (expect blocks of [a, b], [a, c], [a, d, g, e], [g, h], [f, i])
+
+  """
+
+  # for lax boolean MM
+
+  v_S = AOVertex("S")
+  v_A = AOVertex("A")
+  v_B = AOVertex("B")
+  v_C = AOVertex("C")
+  v_D = AOVertex("D")
+  v_E = AOVertex("E")
+  v_F = AOVertex("F")
+  v_G = AOVertex("G")
+  v_H = AOVertex("H")
+  v_I = AOVertex("I")
+  v_J = AOVertex("J")
+  v_K = AOVertex("K")
+  v_L = AOVertex("L")
+  v_M = AOVertex("M")
+  v_N = AOVertex("N")
+
+  vertices = [v_S, v_A, v_B, v_C, v_D, v_E, v_F, v_G, v_H, v_I, v_J, v_K, v_L, v_M, v_N]
+
+  for vertex in vertices:
+    vertex.setIsOverallOrdinary()
+    vertex.setIsLocalOrdinary()
+
+  e1 = AOEdge(v_S, v_A)
+  e2 = AOEdge(v_S, v_B)
+  e3 = AOEdge(v_A, v_S)
+  e4 = AOEdge(v_A, v_C)
+  e5 = AOEdge(v_A, v_D)
+  e6 = AOEdge(v_B, v_A)
+  e7 = AOEdge(v_C, v_D)
+  e8 = AOEdge(v_D, v_E)
+  e9 = AOEdge(v_E, v_F)
+  e10 = AOEdge(v_E, v_H)
+  e11 = AOEdge(v_F, v_G)
+  e12 = AOEdge(v_F, v_I)
+  e13 = AOEdge(v_G, v_E)
+  e14 = AOEdge(v_G, v_J)
+  e15 = AOEdge(v_G, v_K)
+  e16 = AOEdge(v_H, v_G)
+  e17 = AOEdge(v_I, v_G)
+  e18 = AOEdge(v_J, v_K)
+  e19 = AOEdge(v_K, v_H)
+  e20 = AOEdge(v_K, v_J)
+  e21 = AOEdge(v_K, v_L)
+  e22 = AOEdge(v_L, v_M)
+  e23 = AOEdge(v_L, v_N)
+  e24 = AOEdge(v_M, v_F)
+  e25 = AOEdge(v_M, v_N)
+  e26 = AOEdge(v_N, v_B)
+  e27 = AOEdge(v_N, v_M)
+
+  edges = [e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23, e24, e25, e26, e27]
+
+  for edge in edges:
+    edge.setIsLocalOrdinary()
 
   # blocks = doSimpleVRB(vertices, edges)
   blocks = doFastVRB(vertices, edges)

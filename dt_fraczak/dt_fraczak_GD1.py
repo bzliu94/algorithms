@@ -1,3 +1,7 @@
+# 2019-07-29
+
+# fixed issue with edge types and step zero of transform (i.e. adding of arcs)
+
 # 2019-04-15
 
 # algorithm GD version one from fraczak et al. 2013
@@ -23,6 +27,8 @@ from fgib_tarjan import Vertex, Edge, Tree, TreeVertex, TreeEdge, Graph
 from collections import defaultdict
 from lca_bfc import LCA_BFC
 
+from dt_fraczak_GD2 import GD as GD2
+
 # loop edge is a special kind of cycle edge
 def isLoopEdge(arc):
   origin = arc.getOrigin()
@@ -37,6 +43,21 @@ def doStar(t_v, t_w):
   oipn_w = t_w.getPreorderNumber()
   result = oipn_v <= oipn_w and oipn_w < oipn_v + nd_v
   return result
+
+# also called back edge; 
+# requires pre-order numbers to have been determined
+def isCycleEdge(arc, tree):
+  g_u, g_v = arc.getOrigin(), arc.getDestination()
+  t_u = tree.getVertexByName(g_u.getName())
+  t_v = tree.getVertexByName(g_v.getName())
+  oipn_u = t_u.getPreorderNumber()
+  oipn_v = t_v.getPreorderNumber()
+  u_to_v_star = doStar(t_u, t_v)
+  v_to_u_star = doStar(t_v, t_u)
+  if v_to_u_star == True:
+    return True
+  else:
+    return False
 
 TREE_EDGE = 0
 CYCLE_EDGE = 1
@@ -151,7 +172,7 @@ def GD(V, A, g_start_node):
         # edge is a cross edge
         edge.setIsCrossEdge()
       else:
-        raise Exception()
+        pass
 
   num_nodes = len(V)
   # for LCA structure based on DFS tree
@@ -222,7 +243,7 @@ def GD(V, A, g_start_node):
   for u_num in reversed(xrange(1, num_nodes + 1)):
     u = t_num_to_g_node[u_num]
     # we're for the moment considering tree edge as a special kind of forward edge
-    candidate_arcs = [x for x in next_A if (x.isTreeEdge() == True or x.isForwardEdge() == True) and x.getOrigin() == u and marked[x] == False]
+    candidate_arcs = [x for x in next_A if (x.isTreeEdge() == True or x.isForwardEdge() == True) and x.getOrigin() == u and marked[x] == False and isLoopEdge(x) == False]
     while len(candidate_arcs) != 0:
       arc = candidate_arcs.pop()
       if marked[arc] == True:
@@ -255,9 +276,9 @@ def GD(V, A, g_start_node):
         modified_arcs3 = []
         for curr_arc in arcs_with_v_as_origin:
           next_arc = Edge(p[v], curr_arc.getDestination())
-          if next_arc.getOrigin() == next_arc.getDestination():
+          if isCycleEdge(next_arc, t) == True:
             next_arc.setIsCycleEdge()
-          elif p[v] == p[curr_arc.getDestination()]:
+          elif p[v] == p[next_arc.getDestination()]:
             next_arc.setIsTreeEdge()
           else:
             next_arc.setIsForwardEdge()
@@ -266,9 +287,9 @@ def GD(V, A, g_start_node):
           modified_arcs1.append(next_arc)
         for curr_arc in arcs_with_v_as_destination:
           next_arc = Edge(curr_arc.getOrigin(), p[v])
-          if next_arc.getOrigin() == next_arc.getDestination():
+          if isCycleEdge(next_arc, t) == True:
             next_arc.setIsCycleEdge()
-          elif curr_arc.getOrigin() == p[p[v]]:
+          elif p[v] == p[next_arc.getDestination()]:
             next_arc.setIsTreeEdge()
           else:
             next_arc.setIsForwardEdge()
@@ -281,8 +302,10 @@ def GD(V, A, g_start_node):
           if old_marked[curr_arc] == True:
             marked[next_arc] = True
           modified_arcs3.append(next_arc)
-        candidate_arcs.extend([x for x in modified_arcs1 if x.getOrigin() == u and marked[x] == False])
-        candidate_arcs.extend([x for x in modified_arcs2 if x.getOrigin() == u and marked[x] == False])
+        # the detail that we must not be a loop edge for us to add it is important
+        candidate_arcs.extend([x for x in modified_arcs1 if x.getOrigin() == u and marked[x] == False and isLoopEdge(x) == False])
+        # the detail that we must not be a loop edge for us to add it is important
+        candidate_arcs.extend([x for x in modified_arcs2 if x.getOrigin() == u and marked[x] == False and isLoopEdge(x) == False])
         # may not be necessary
         next_A.extend(modified_arcs1)
         next_A.extend(modified_arcs2)
@@ -296,6 +319,7 @@ def GD(V, A, g_start_node):
         marked[arc] = True
       else:
         same[u] = list(set(same[u] + same[v]))
+        # (v, u) -> transform(u, v) ~= transform(destination, origin) -> origin to (proper descendant of destination) become p(destination) to (proper descendant destination)
         # 0. revise arcs
         tree_vertex = t.getVertexByName(u.getName())
         tree_descendants = tree_vertex.getSubtreeTreeNodes()
@@ -307,6 +331,9 @@ def GD(V, A, g_start_node):
           for curr_existing_arc in existing_arcs:
             next_A.remove(curr_existing_arc)
           if len(existing_arcs) == 0:
+            continue
+          # this is important
+          if u not in p:
             continue
           next_arc = Edge(p[u], g_curr_descendant)
           if next_arc.getDestination() == u and (next_arc.isCycleEdge() == True or isLoopEdge(next_arc) == True) == True:
@@ -330,13 +357,23 @@ def GD(V, A, g_start_node):
         modified_arcs3 = []
         for curr_arc in arcs_with_v_as_origin:
           next_arc = Edge(p[v], curr_arc.getDestination())
-          next_arc.setIsCycleEdge()
+          if isCycleEdge(next_arc, t) == True:
+            next_arc.setIsCycleEdge()
+          elif next_arc.getDestination() in p and p[v] == p[next_arc.getDestination()]:
+            next_arc.setIsTreeEdge()
+          else:
+            next_arc.setIsForwardEdge()
           if old_marked[curr_arc] == True:
             marked[next_arc] = True
           modified_arcs1.append(next_arc)
         for curr_arc in arcs_with_v_as_destination:
           next_arc = Edge(curr_arc.getOrigin(), p[v])
-          next_arc.setIsCycleEdge()
+          if isCycleEdge(next_arc, t) == True:
+            next_arc.setIsCycleEdge()
+          elif p[v] == p[next_arc.getDestination()]:
+            next_arc.setIsTreeEdge()
+          else:
+            next_arc.setIsForwardEdge()
           if old_marked[curr_arc] == True:
             marked[next_arc] = True
           modified_arcs2.append(next_arc)
@@ -388,6 +425,10 @@ if __name__ == '__main__':
   # answer is:
   # (f, b), (c, b), (d, b), (g, s), (e, s), (a, s)
 
+  result = GD(vertices, edges, v8)
+
+  """
+
   """
 
   # example is from page two from fraczak et al. 2013
@@ -425,6 +466,60 @@ if __name__ == '__main__':
   # (f, b), (c, b), (e, a), (b, s), (d, s), (g, s), (a, s)
 
   result = GD(vertices, edges, v8)
+
+  """
+
+  # example from figures one and two in georgiadis et al. 2015
+
+  v_A = Vertex("A")
+  v_B = Vertex("B")
+  v_C = Vertex("C")
+  v_D = Vertex("D")
+  v_E = Vertex("E")
+  v_F = Vertex("F")
+  v_H = Vertex("H")
+  v_I = Vertex("I")
+  v_J = Vertex("J")
+  v_L = Vertex("L")
+
+  vertices = [v_A, v_B, v_C, v_D, v_E, v_F, v_H, v_I, v_J, v_L]
+
+  e1 = Edge(v_A, v_B)
+  e2 = Edge(v_A, v_C)
+  e3 = Edge(v_B, v_A)
+  e4 = Edge(v_B, v_C)
+  e5 = Edge(v_C, v_A)
+  e6 = Edge(v_C, v_B)
+  e7 = Edge(v_C, v_D)
+  e8 = Edge(v_C, v_E)
+  e9 = Edge(v_C, v_H)
+  e10 = Edge(v_D, v_B)
+  e11 = Edge(v_D, v_C)
+  e12 = Edge(v_D, v_E)
+  e13 = Edge(v_E, v_C)
+  e14 = Edge(v_E, v_D)
+  e15 = Edge(v_E, v_F)
+  e16 = Edge(v_E, v_H)
+  e17 = Edge(v_F, v_D)
+  e18 = Edge(v_F, v_E)
+  e19 = Edge(v_F, v_I)
+  e20 = Edge(v_H, v_F)
+  e21 = Edge(v_H, v_J)
+  e22 = Edge(v_H, v_L)
+  e23 = Edge(v_I, v_H)
+  e24 = Edge(v_I, v_L)
+  e25 = Edge(v_J, v_H)
+  e26 = Edge(v_J, v_L)
+  e27 = Edge(v_L, v_H)
+  e28 = Edge(v_L, v_I)
+  e29 = Edge(v_L, v_J)
+
+  edges = [e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23, e24, e25, e26, e27, e28, e29]
+
+  # answer is:
+  # (C, A), (E, C), (J, C), (H, C), (L, C), (B, A), (D, C), (I, C), (F, C)
+
+  result = GD(vertices, edges, v_A)
 
   d = result
 

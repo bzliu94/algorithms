@@ -1,3 +1,11 @@
+# 2019-07-29
+
+# add prepending of children for a given parent node
+
+# 2019-07-07
+
+# add child removal
+
 # 2019-04-06
 
 # fixed a tree edge parent bug
@@ -56,7 +64,7 @@
 # needing to have for that case v < w 
 # (assuming node values are pre-order numbers)
 
-from collections import defaultdict
+from collections import defaultdict, deque
 
 from dsuf import NamedUnionFind
 
@@ -313,7 +321,8 @@ class TreeVertex():
   def __init__(self, name):
     self.name = name
     self.parent = None
-    self.children = []
+    self.children_deque = deque([])
+    # can be stale if we remove nodes
     self.pre = None
     self.post = None
   def getName(self):
@@ -323,11 +332,15 @@ class TreeVertex():
   def getParent(self):
     return self.parent
   def addChild(self, node):
-    self.children.append(node)
+    self.children_deque.append(node)
+  def prependChild(self, node):
+    self.children_deque.appendleft(node)
+  def removeLeftmostChild(self):
+    self.children_deque.popleft()
   def getChildren(self):
-    return self.children
+    return list(self.children_deque)
   def haveChildren(self):
-    return len(self.children) != 0
+    return len(self.children_deque) != 0
   def haveParent(self):
     return self.parent != None
   def setPreorderNumber(self, value):
