@@ -2,10 +2,9 @@
 
 # we create block forest for vertex resilience
 
-from fgib_tarjan import Graph, Vertex, Edge, Tree, TreeVertex, TreeEdge
-
 # have nodes and edges that come in two flavors: graph, tree
 
+from fgib_tarjan import Graph, Vertex, Edge, Tree, TreeVertex, TreeEdge
 from collections import defaultdict
 
 class BlockGraph(Graph):
@@ -78,11 +77,14 @@ class BlockNode(BlockGraphNode):
   def __init__(self, name):
     BlockGraphNode.__init__(self, name)
 
-class VRBOracle:
+# we note that un-post-processed vrb algorithms may provide 
+# only blocks that have at least two items in them
+class VRBBFOracle:
   def __init__(self, standard_names, blocks):
     self.standard_names = standard_names
     self.blocks = blocks
     self.name_to_bf_node_dict = None
+    self.standard_names_set = set(standard_names)
   def _getStandardNames(self):
     return self.standard_names
   def _getBlocks(self):
@@ -91,9 +93,11 @@ class VRBOracle:
     return self.name_to_bf_node_dict
   def _setNameToBFNodeDict(self, name_to_bf_node_dict):
     self.name_to_bf_node_dict = name_to_bf_node_dict
+  def _getStandardNamesSet(self):
+    return self.standard_names_set
   @staticmethod
   def construct(standard_names, blocks):
-    oracle = VRBOracle(standard_names, blocks)
+    oracle = VRBBFOracle(standard_names, blocks)
     # make block graph, from which we make block forest; 
     # block graph is undirected and bipartite; 
     # make standard nodes and block nodes that we later connect
@@ -144,8 +148,17 @@ class VRBOracle:
   # takes constant time, in principle; 
   # we assume each name appears once; 
   # also, we would prefer to make sure 
-  # that the two names given are different
+  # that the two names given are different; 
+  # if names are not present for vertex collection, we fail
   def areVertexResilient(self, name1, name2):
+    # this check is necessary because we might not 
+    # have a parent to share, let alone have a grandparent; 
+    # we assume the name is present in the input
+    standard_names_set = self._getStandardNamesSet()
+    if name1 not in standard_names_set or name2 not in standard_names_set:
+      raise Exception()
+    if name1 == name2:
+      return True
     name_to_bf_node_dict = self._getNameToBFNodeDict()
     v1 = name_to_bf_node_dict[name1]
     v2 = name_to_bf_node_dict[name2]
@@ -184,16 +197,28 @@ if __name__ == '__main__':
 
   """
 
-  standard_names = ["a", "b", "c", "d", "e", "f", "g", "h", "i"]
+  standard_names = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
   blocks = [Block("B1", ["a", "b"]), Block("B2", ["a", "c"]), Block("B3", ["a", "d", "g", "e"]), Block("B4", ["g", "h"]), Block("B5", ["f", "i"])]
 
-  oracle = VRBOracle.construct(standard_names, blocks)
+  oracle = VRBBFOracle.construct(standard_names, blocks)
 
+  # expect True
   print oracle.areVertexResilient("g", "h")
+  # expect True
   print oracle.areVertexResilient("d", "g")
+  # expect False
   print oracle.areVertexResilient("b", "c")
+  # expect False
   print oracle.areVertexResilient("b", "i")
+  # expect True
   print oracle.areVertexResilient("f", "i")
+  # expect True
   print oracle.areVertexResilient("i", "i")
+  # expect False
+  print oracle.areVertexResilient("j", "i")
+  # expect True
+  print oracle.areVertexResilient("j", "j")
+  # expect failure
+  # print oracle.areVertexResilient("a", "z")
 
 

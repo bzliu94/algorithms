@@ -46,6 +46,7 @@ A collection of algorithms.
 43. fastvrb for vertex-resilient blocks in strongly connected graphs via georgiadis et al. 2015
 44. union-tree disjoint set union-find data structure via gabow and tarjan 1985
 45. block forest for vrb
+46. 2ecb, vrb, 2vcb oracles
 
 \*: tree is for 2-dimensional objects
 
