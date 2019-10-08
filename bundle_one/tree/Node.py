@@ -50,14 +50,20 @@ class Node:
     return not self.isInternal()
   def hasElement(self):
     return self.getElement() != None
+
+  def hasChildren(self):
+    return self.hasLeftChild() or self.hasRightChild()
   """
-  def hasNonExternalNodeChild(self):
+  def isNonStandardExternal(self):
     if self.isExternal() == True:
       return False
     else:
-      left_child_is_not_external = self.getLeftChild().isExternal() == False
-      right_child_is_not_external = self.getRightChild().isExternal() == False
-      return left_child_is_not_external or right_child_is_not_external
+      if self.hasChildren() == True:
+        if self.hasLeftChild() == True and self.getLeftChild().isExternal() == False:
+        return False
+      if self.hasRightChild() == True and self.getRightChild().isExternal() == False:
+        return True
+      return False
   """
   # show string corresponding to entry
   def toString(self):

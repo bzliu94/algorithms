@@ -1,5 +1,3 @@
-from SplayTree import *
-
 from ..OrderedBinarySearchTree import *
 from ..Entry import *
 from RedBlackTreeNode import *
@@ -170,6 +168,10 @@ print t2.toString()
 print t2.toInorderList()
 t2.remove(LocationAwareEntry(65, 1))
 result2 = t2.toInorderList()
+
+"""
+
+"""
 
 t3 = SplayTree.construct(k_v_pairs)
 t3.remove(LocationAwareEntry(32, 1))

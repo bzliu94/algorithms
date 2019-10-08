@@ -47,6 +47,7 @@ A collection of algorithms.
 44. union-tree disjoint set union-find data structure via gabow and tarjan 1985
 45. block forest for vrb
 46. 2ecb, vrb, 2vcb oracles
+47. bundle #1 - 1-d and 2-d range trees
 
 \*: tree is for 2-dimensional objects
 

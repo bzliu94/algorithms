@@ -18,39 +18,50 @@ class BinaryTree:
   def isEmpty(self):
     return self.size() == 0
   """
-  # get a string representation of entries
-  # for nodes visited using in-order traversal
+  """
+  # possibly get a string representation of entries
+  # for nodes visited using in-order traversal; 
+  # because of the way in which we concatenate lists, this is inefficient
   def toInorderList(self):
     root = self.getRoot()
     return self._toInorderListHelper(root)
-  def _toInorderListHelper(self, node):
-    if node.isExternal():
+  def _toInorderListHelper(self, node, node_fn = lambda x: x.getElement().toString()):
+    if node.isExternal() == True:
       return []
     else:
       left_child = node.getLeftChild()
       right_child = node.getRightChild()
-      # print left_child, right_child
-      """
-      print node.getElement().toString()
-      left_child_entry = left_child.getElement()
-      if left_child_entry != None:
-        print left_child_entry.toString()
-      """
-      entry_list_left = []
-      entry_list_right = []
+      item_list_left = []
+      item_list_right = []
       if node.hasLeftChild():
-        entry_list_left = self._toInorderListHelper(left_child)
-      curr_entry = node.getElement()
-      """
-      curr_entry_list = []
-      if curr_entry != None:
-        curr_entry_list = [curr_entry.toString()]
-      """
-      curr_entry_list = [curr_entry.toString()]
+        item_list_left = self._toInorderListHelper(left_child, node_fn)
+      curr_item_list = [node_fn(node)]
       if node.hasRightChild():
-        entry_list_right = self._toInorderListHelper(right_child)
-      entry_list = entry_list_left + curr_entry_list + entry_list_right
-      return entry_list
+        item_list_right = self._toInorderListHelper(right_child, node_fn)
+      item_list = item_list_left + curr_item_list + item_list_right
+      return item_list
+  """
+  def toInorderList(self):
+    root = self.getRoot()
+    result = []
+    self._toInorderListHelper(root, result)
+    return result
+  def _toInorderListHelper(self, node, result):
+    if node.isExternal() == True:
+      pass
+    else:
+      left_child = node.getLeftChild()
+      right_child = node.getRightChild()
+      if node.hasLeftChild() == True:
+        self._toInorderListHelper(left_child, result)
+      result.append(node)
+      if node.hasRightChild() == True:
+        self._toInorderListHelper(right_child, result)
+  def toInorderListRooted(self, node):
+    result = []
+    self._toInorderListHelper(node, result)
+    return result
+
   # assume that we have entries, and keys cannot be None
   def toString(self):
     return self._toString(self.getRoot())
